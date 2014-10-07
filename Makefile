@@ -1,18 +1,20 @@
+KERNEL_FILES=ports.c screen.c heap.c interrupt.c ata.c vmm.c process.c elf.c syscall.c memcpy.c kernel.c
+KERNEL_OBJECTS=$(patsubst %.c, build/bootstrap-kernel/%.o, $(KERNEL_FILES))
 
 build/%.o: %.c
 	mkdir -p `dirname $@`
 	gcc -m32 -I. -ffreestanding -c $< -o $@
 
 # Bootloader
-output/bootsector.bin:
+output/bootsector.bin: bootsector/boot.asm
 	mkdir -p output
 	nasm bootsector/boot.asm -f bin -o output/bootsector.bin
 
 # Bootstrap kernel
-output/bootstrap-kernel.bin: build/bootstrap-kernel/kernel.o
+output/bootstrap-kernel.bin: $(KERNEL_OBJECTS) bootstrap-kernel/kernel-entry.asm
 	mkdir -p output
 	nasm bootstrap-kernel/kernel-entry.asm -f elf -o build/bootstrap-kernel/kernel-entry.o
-	ld -o $@ -m elf_i386 -Ttext 0x8000 --oformat binary build/bootstrap-kernel/kernel-entry.o build/bootstrap-kernel/kernel.o
+	ld -o $@ -m elf_i386 -Ttext 0x8000 --oformat binary build/bootstrap-kernel/kernel-entry.o $(KERNEL_OBJECTS)
 
 # Standard library
 output/libstd-tom.a: build/stdlib/printf.o

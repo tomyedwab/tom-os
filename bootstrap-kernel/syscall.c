@@ -1,3 +1,5 @@
+#include "kernel.h"
+
 void syscallHandler(unsigned int func, unsigned int param1) {
     /*
     printStr("Syscall! ");
@@ -13,7 +15,22 @@ void syscallHandler(unsigned int func, unsigned int param1) {
     }
 }
 
-void reportInterruptHandler() {
-    // TODO: Figure out which interrupt happened and why
-    printStr("Interrupt!\n");
+void excDoubleFaultHandler() {
+    // TODO: Do something appropriate
+}
+
+void excGeneralProtectionFault() {
+    printStr("General protection fault\n");
+    halt();
+}
+
+void excPageFault() {
+    printStr("Page fault\n");
+    halt();
+}
+
+void reportInterruptHandler(unsigned int id) {
+    printStr("Unhandled interrupt! ");
+    printByte(id);
+    printStr("\n");
 }

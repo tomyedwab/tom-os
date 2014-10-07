@@ -1,7 +1,8 @@
 #include <stdlib/printf.h>
 
 int main() {
-    printf("Hello world!\n");
+    int x = 567;
+    printf("Hello world! %X\n", &x);
     while (1) {
     }
 }

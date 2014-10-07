@@ -1,6 +1,5 @@
-// TODO: Doesn't work!
+#include "kernel.h"
 
-//#define BASE_ADDRESS 0x170
 #define BASE_ADDRESS 0x1F0
 
 void sleep() {
