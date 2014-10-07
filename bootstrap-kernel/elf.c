@@ -55,7 +55,6 @@ void loadELF(const char *buffer) {
     ELFSection *stringTable;
     const char *strings;
     TKVProcID proc_id;
-    void (*entry_point)();
     
     if (header->magic[0] != 0x7F || header->magic[1] != 'E' ||
         header->magic[2] != 'L' || header->magic[3] != 'F') {
@@ -134,7 +133,7 @@ void loadELF(const char *buffer) {
 
     // TODO: initialize stack
     
-    printStr("Running ELF..."); printInt((unsigned int)entry_point); printStr("\n");
+    printStr("Running ELF..."); printInt((unsigned int)header->entry); printStr("\n");
 
     // Switch to the process memory space & immediately jump
     procActivateAndJump(proc_id, header->entry);
