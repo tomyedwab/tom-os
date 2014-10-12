@@ -1,3 +1,5 @@
+#include "kernel.h"
+
 extern void syscall_handler_asm();
 extern void exc_df_handler();
 extern void exc_pf_handler();
@@ -43,7 +45,7 @@ void setInterrupt(unsigned char interrupt, void *handler) {
     desc->offset_low = ((unsigned int)handler) & 0xffff;
     desc->offset_high = (unsigned int)handler >> 16;
     desc->selector = 0x08;
-    desc->type_attr = 0x8E; // Present, privilege level xb, Seg = 0, Type = xE
+    desc->type_attr = 0x8E; // Present, privilege level 0, Seg = 0, Type = xE
 }
 
 void initInterrupts() {
@@ -92,3 +94,25 @@ void initInterrupts() {
         : : "r" (header));
 }
 
+void excDoubleFaultHandler() {
+    // TODO: Do something appropriate
+    printStr("Double fault\n");
+    halt();
+}
+
+void excGeneralProtectionFault(unsigned int error) {
+    printStr("General protection fault\n");
+    printInt(error); printStr("\n");
+    halt();
+}
+
+void excPageFault() {
+    printStr("Page fault\n");
+    halt();
+}
+
+void reportInterruptHandler(unsigned int id) {
+    printStr("Unhandled interrupt! ");
+    printByte(id);
+    printStr("\n");
+}

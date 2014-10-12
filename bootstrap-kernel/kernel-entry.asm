@@ -39,15 +39,21 @@ syscall_handler_asm:
     iret
 
 exc_df_handler:
+    push 0x70
     call excDoubleFaultHandler
+    add esp, 8 
     iret
 
 exc_gp_handler:
+    push 0x71
     call excGeneralProtectionFault
+    add esp, 8 
     iret
 
 exc_pf_handler:
+    push 0x72
     call excPageFault
+    add esp, 8 
     iret
 
 int00_handler:
@@ -107,19 +113,19 @@ int09_handler:
 int10_handler:
     push 0x0a
     call reportInterruptHandler
-    add esp, 4
+    add esp, 8
     iret
 
 int11_handler:
     push 0x0b
     call reportInterruptHandler
-    add esp, 4
+    add esp, 8
     iret
 
 int12_handler:
     push 0x0c
     call reportInterruptHandler
-    add esp, 4
+    add esp, 8
     iret
 
 int14_handler:
@@ -143,7 +149,7 @@ int16_handler:
 int17_handler:
     push 0x11
     call reportInterruptHandler
-    add esp, 4
+    add esp, 8
     iret
 
 int18_handler:

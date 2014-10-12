@@ -1,0 +1,12 @@
+Physical memory map:
+
+At boot time:
+0x00000 - 0x00200 Boot sector (boot.asm)
+0x00200 - 0x07e00 Bootloader stack (boot.asm)
+0x07e00 - 0x08000 2nd stage bootloader (boot.asm)
+
+At run time:
+0x00000 - 0x08000 Minidriver routines (?; up to 32kb)
+0x08000 - 0x88000 Kernel (kernel.c; up to 512kb)
+0x88000 - 0x90000 Kernel stack (boot.asm)
+0x90000 - *       Kernel heap

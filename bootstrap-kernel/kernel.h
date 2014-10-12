@@ -13,6 +13,9 @@ typedef struct {
     TKVPageDirectory vmm_directory;
 } TKProcessInfo;
 
+// Global descriptor table
+void gdtInit(void);
+
 // Ports
 unsigned char inb(unsigned short port);
 void outb(unsigned short port, unsigned char data);

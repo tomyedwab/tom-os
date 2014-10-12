@@ -6,12 +6,18 @@ int main() {
     initScreen();
     printStr("Bootstrap kernel loaded.\n");
 
-    initInterrupts();
-
     initHeap();
+    printStr("[OK] Heap\n");
+
+    gdtInit();
+    printStr("[OK] GDT\n");
+
+    initInterrupts();
+    printStr("[OK] Interrupts\n");
 
     // Initialize the kernel process & switch to the kernel VMM directory
     procInitKernel();
+    printStr("[OK] Kernel process\n");
 
     buffer = (unsigned char *)allocPage();
     if (loadFromDisk(32, 8, buffer) == 1) {
@@ -20,7 +26,6 @@ int main() {
     }
 
     // Infinite loop!
-    while (1) {
-    }
+    halt();
     return 0;
 }

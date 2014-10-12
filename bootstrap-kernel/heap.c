@@ -4,7 +4,7 @@ int current_page;
 
 void initHeap() {
     // Start a this page and keep handing out pages going up the address space
-    current_page = 0x20000;
+    current_page = 0x90000;
 }
 
 void *allocPage() {

@@ -1,6 +1,6 @@
 [org 0x7c00]
 
-mov bp, 0xf000 ; Set stack pointer
+mov bp, 0x7c00 ; Set stack pointer
 mov sp, bp
 
 ; Load 32 sectors of data to 0x7e00

@@ -4,9 +4,9 @@
 
 void sleep() {
     int counter = 0;
-    float tmp = 1;
-    for (counter = 0; counter < 1000000; counter++) {
-        tmp *= 2;
+    int test = 0;
+    for (counter = 0; counter < 255; counter++) {
+        test += 1;
     }
 }
 

@@ -14,23 +14,3 @@ void syscallHandler(unsigned int func, unsigned int param1) {
         return;
     }
 }
-
-void excDoubleFaultHandler() {
-    // TODO: Do something appropriate
-}
-
-void excGeneralProtectionFault() {
-    printStr("General protection fault\n");
-    halt();
-}
-
-void excPageFault() {
-    printStr("Page fault\n");
-    halt();
-}
-
-void reportInterruptHandler(unsigned int id) {
-    printStr("Unhandled interrupt! ");
-    printByte(id);
-    printStr("\n");
-}
