@@ -15,7 +15,7 @@ typedef struct {
 } TKProcessInfo;
 
 // kernel-entry.asm
-void user_process_jump(TKVPageDirectory proc_id, void *stack_ptr, void *ip);
+unsigned int user_process_jump(TKVPageDirectory proc_id, void *stack_ptr, void *ip);
 
 // Global descriptor table
 void gdtInit(void);
@@ -42,7 +42,7 @@ void procInitKernel();
 void procInitKernelTSS(void *tss_ptr);
 TKVProcID procInitUser();
 void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest);
-void procActivateAndJump(TKVProcID proc_id, void *ip);
+unsigned int procActivateAndJump(TKVProcID proc_id, void *ip);
 void halt();
 
 extern TKProcessInfo *tk_process_table;

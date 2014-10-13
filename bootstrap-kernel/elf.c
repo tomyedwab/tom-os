@@ -49,8 +49,8 @@ typedef struct {
     unsigned short shstrndx;
 } ELFHeader;
 
-void loadELF(const char *buffer) {
-    int i, j;
+unsigned int loadELF(const char *buffer) {
+    int i, j, ret;
     ELFHeader *header = (ELFHeader *)buffer;
     ELFSection *stringTable;
     const char *strings;
@@ -59,7 +59,7 @@ void loadELF(const char *buffer) {
     if (header->magic[0] != 0x7F || header->magic[1] != 'E' ||
         header->magic[2] != 'L' || header->magic[3] != 'F') {
         printStr("Magic number invalid!");
-        return;
+        return -1;
     }
 
     proc_id = procInitUser();
@@ -136,6 +136,7 @@ void loadELF(const char *buffer) {
     printStr("Running ELF..."); printInt((unsigned int)header->entry); printStr("\n");
 
     // Switch to the process memory space & immediately jump
-    procActivateAndJump(proc_id, header->entry);
+    ret = procActivateAndJump(proc_id, header->entry);
     printStr("ELF exited.\n");
+    return ret;
 }

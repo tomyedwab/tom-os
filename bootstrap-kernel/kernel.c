@@ -1,6 +1,6 @@
 #include "kernel.h"
 
-int main() {
+void main() {
     int i;
     unsigned char *buffer;
     initScreen();
@@ -21,12 +21,11 @@ int main() {
 
     buffer = (unsigned char *)allocPage();
     if (loadFromDisk(32, 8, buffer) == 1) {
+        unsigned int ret;
         printStr("Loaded app from disk.\n");
-        loadELF(buffer);
-        printStr("Back to main.\n");
+        ret = loadELF(buffer);
+        printStr("App ended: "); printInt(ret); printStr("\n");
     }
 
-    // Infinite loop!
-    halt();
-    return 0;
+    return;
 }

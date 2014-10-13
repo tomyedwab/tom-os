@@ -111,14 +111,10 @@ void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest) {
     vmmMapPage(info->vmm_directory, src, dest);
 }
 
-void procActivateAndJump(TKVProcID proc_id, void *ip) {
+unsigned int procActivateAndJump(TKVProcID proc_id, void *ip) {
     TKProcessInfo *info = &tk_process_table[proc_id-1];
     // TODO: Verify process is valid
-    if (proc_id == 1) {
-        // TODO: Jump to kernel process?
-    } else {
-        user_process_jump(info->vmm_directory, info->stack_vaddr, ip);
-    }
+    return user_process_jump(info->vmm_directory, info->stack_vaddr, ip);
 }
 
 void halt() {
