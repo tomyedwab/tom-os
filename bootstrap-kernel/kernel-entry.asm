@@ -5,6 +5,7 @@
 [extern excGeneralProtectionFault]
 [extern excPageFault]
 [extern reportInterruptHandler]
+[global user_process_jump]
 [global syscall_handler_asm]
 [global exc_df_handler]
 [global exc_gp_handler]
@@ -30,6 +31,30 @@
 
 call main
 jmp $
+
+user_process_jump:
+    push ebp
+    mov ebp, esp
+    mov eax, [ebp+0x08] ; Directory
+    mov cr3, eax
+    mov ebx, [ebp+0x0c] ; Stack pointer
+    mov ecx, [ebp+0x10] ; Target address
+
+    ;mov ax, 0x23 ; Data segment
+    mov ax, 0x20 ; Data segment (level 0)
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    ;push 0x23 ; User data segment + level 3
+    push 0x20 ; User data segment + level 0
+    push ebx  ; Stack
+    pushf
+    ;push 0x1b ; User code segment + level 3
+    push 0x18 ; User code segment + level 0
+    push ecx
+    iret
 
 syscall_handler_asm:
     push ebx

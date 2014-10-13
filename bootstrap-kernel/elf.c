@@ -137,4 +137,5 @@ void loadELF(const char *buffer) {
 
     // Switch to the process memory space & immediately jump
     procActivateAndJump(proc_id, header->entry);
+    printStr("ELF exited.\n");
 }

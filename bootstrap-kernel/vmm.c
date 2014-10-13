@@ -46,11 +46,3 @@ void vmmSwap(TKVPageDirectory directory) {
         );
 }
 
-void vmmActivate(TKVPageDirectory directory, void *ip) {
-    __asm__ __volatile__ (
-        "mov %0, %%cr3\n"
-        "call %1\n"
-        : : "r" (directory), "r" (ip)
-        );
-}
-

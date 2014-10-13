@@ -11,7 +11,11 @@ typedef unsigned int TKVProcID;
 typedef struct {
     TKVProcID proc_id;
     TKVPageDirectory vmm_directory;
+    void *stack_vaddr;
 } TKProcessInfo;
+
+// kernel-entry.asm
+void user_process_jump(TKVPageDirectory proc_id, void *stack_ptr, void *ip);
 
 // Global descriptor table
 void gdtInit(void);
@@ -31,14 +35,15 @@ TKVPageTable vmmGetOrCreatePageTable(TKVPageDirectory directory, int prefix);
 void vmmSetPage(TKVPageTable table, int src, unsigned int dest);
 void vmmMapPage(TKVPageDirectory directory, unsigned int src, unsigned int dest);
 void vmmSwap(TKVPageDirectory directory);
-void vmmActivate(TKVPageDirectory directory, void *ip);
 
 // Processes
 
 void procInitKernel();
+void procInitKernelTSS(void *tss_ptr);
 TKVProcID procInitUser();
 void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest);
 void procActivateAndJump(TKVProcID proc_id, void *ip);
+void halt();
 
 extern TKProcessInfo *tk_process_table;
 
@@ -63,7 +68,3 @@ int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer);
 
 // Memcpy
 void memcpy(void *dest, void *src, int bytes);
-
-// Macros
-
-#define halt() while (1) {}
