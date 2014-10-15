@@ -26,7 +26,7 @@ int waitForATABusy() {
 
 
 int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer) {
-    int slavebit = 1;
+    int slavebit = 0;
     int index;
     unsigned char status;
 
@@ -40,10 +40,10 @@ int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer) {
     outb(BASE_ADDRESS + 5, (LBA >> 16) & 0xff);
     //issue a read sectors command
     outb(BASE_ADDRESS + 7, 0x20);
-    //printStr("Requested...\n");
+    printStr("Requested...\n");
     status = waitForATABusy();
     if (status == 0) { return 0; }
-    //printStr("Got data!\n");
+    printStr("Got data!\n");
     for (index = 0; index < 256 * sectorCount; ) {
         ((unsigned short *)buffer)[index] = inw(BASE_ADDRESS);
         index++;

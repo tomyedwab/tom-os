@@ -1,6 +1,6 @@
 #include <stdlib/printf.h>
 
 int main() {
-    int x = 0x123456;
-    printf("Hello world! %X\n", &x);
+    printf("Hello, world: %X", 0x1234);
+    return 0x1234;
 }

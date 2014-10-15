@@ -23,7 +23,7 @@ output/libstd-tom.a: build/stdlib/printf.o
 	ar rcs $@ build/stdlib/printf.o
 
 # Sample application
-output/sample.elf: build/sample/main.o output/libstd-tom.a
+output/sample.elf: build/sample/main.o output/libstd-tom.a build/stdlib/loader.o
 	ld -o $@ -m elf_i386 build/stdlib/loader.o build/sample/main.o output/libstd-tom.a
 
 # Complete image
@@ -35,7 +35,12 @@ image: output/bootsector.bin output/bootstrap-kernel.bin output/libstd-tom.a out
 	# Pad another 4096 bytes (8 sectors)
 	truncate -s 20480 output/image.bin
 
-vm: image
+# Disassembly
+disasm: output/bootstrap-kernel.bin output/sample.elf
+	ndisasm -b 32 output/bootstrap-kernel.bin > output/bootstrap-kernel.bin.as
+	ndisasm -b 32 output/sample.elf > output/sample.elf.as
+
+vm: image disasm
 	rm -f boot.vhd
 	VBoxManage convertfromraw ./output/image.bin boot.vhd --format VHD --uuid="{8241d56f-3c7e-4907-9db2-0d05ac2430ce}"
 

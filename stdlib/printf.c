@@ -41,6 +41,8 @@ int strnlen(const char *s, int max_len)
     return count;
 }
 
+void puts(const char *s);
+/*
 void puts(const char *s)
 {
     // Do a syscall
@@ -51,6 +53,7 @@ void puts(const char *s)
         : : "r" (s) : "%eax", "%ebx"
     );
 }
+    */
 
 #define ZEROPAD 1               /* pad with zero */
 #define SIGN    2               /* unsigned/signed long */

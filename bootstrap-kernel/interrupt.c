@@ -22,6 +22,7 @@ extern void int17_handler();
 extern void int18_handler();
 extern void int19_handler();
 extern void int20_handler();
+extern void irq_handler();
 
 typedef struct __attribute__((__packed__)) {
     unsigned short limit;
@@ -85,8 +86,7 @@ void initInterrupts() {
     setInterrupt(18, int18_handler);
     setInterrupt(19, int19_handler);
     setInterrupt(20, int20_handler);
-
-    setInterrupt(0x80, syscall_handler_asm);
+    setInterrupt(0x76, irq_handler);
 
     __asm__ __volatile__ (
         "lidt (%0)\n"
