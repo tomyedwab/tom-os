@@ -6,7 +6,8 @@ At boot time:
 0x07e00 - 0x08000 2nd stage bootloader (boot.asm)
 
 At run time:
-0x00000 - 0x08000 Minidriver routines (?; up to 32kb)
-0x08000 - 0x88000 Kernel (kernel.c; up to 512kb)
-0x88000 - 0x90000 Kernel stack (boot.asm)
-0x90000 - *       Kernel heap
+0x000000 - 0x008000 Minidriver routines (?; up to 32kb)
+0x008000 - 0x088000 Kernel (kernel.c; up to 512kb)
+0x088000 - 0x090000 Kernel stack (boot.asm)
+0x0a0000 - 0x0fffff Video memory & ROMs
+0x100000 - *        Kernel heap

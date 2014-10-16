@@ -7,4 +7,3 @@ ata0-master: type=disk, path="output/image.bin", mode=flat, cylinders=1, heads=1
 boot: disk
 ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
 ata1: enabled=1, ioaddr1=0x170, ioaddr2=0x370, irq=15
-magic_break: enabled=1

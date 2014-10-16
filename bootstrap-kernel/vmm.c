@@ -23,12 +23,14 @@ TKVPageTable vmmGetOrCreatePageTable(TKVPageDirectory directory, int prefix) {
         table[i] = 0;
     }
 
-    directory[prefix] = ((unsigned int)table) & 0xfffff000 | 1;
+    // Set "present" and "read/write" bits
+    directory[prefix] = ((unsigned int)table) & 0xfffff000 | 0x3;
     return table;
 }
 
 void vmmSetPage(TKVPageTable table, int src, unsigned int dest) {
-    table[src] = dest & 0xfffff000 | 1;
+    // Set "present" and "read/write" bits
+    table[src] = dest & 0xfffff000 | 0x3;
 }
 
 void vmmMapPage(TKVPageDirectory directory, unsigned int src, unsigned int dest) {

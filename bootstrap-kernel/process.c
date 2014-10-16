@@ -48,9 +48,15 @@ void procInitKernel() {
     // Process ID 1 = Kernel
     tk_process_table[0].proc_id = 1;
     tk_process_table[0].vmm_directory = vmmCreateDirectory();
+    printStr("Kernel VMM directory: ");
+    printInt(tk_process_table[0].vmm_directory);
+    printStr("\n");
 
     // Map first 1024 pages (4MB) to identity
     table = vmmGetOrCreatePageTable(tk_process_table[0].vmm_directory, 0);
+    printStr("Kernel VMM table: ");
+    printInt(table);
+    printStr("\n");
     for (i = 0; i < 1024; i++) {
         vmmSetPage(table, i, i << 12);
     }

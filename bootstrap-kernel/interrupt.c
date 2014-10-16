@@ -55,7 +55,7 @@ void initInterrupts() {
     interrupt_table = (InterruptTableDescriptor*)allocPage();
     header = (InterruptTableHeader *)&(interrupt_table[256]);
 
-    // Clear table
+    // Clear table (64 * sizeof(unsigned int) * sizeof(ITD) bytes)
     for (i = 0; i < 64 * sizeof(InterruptTableDescriptor); i++) {
         ((unsigned int *)interrupt_table)[i] = 0;
     }
@@ -86,6 +86,7 @@ void initInterrupts() {
     setInterrupt(18, int18_handler);
     setInterrupt(19, int19_handler);
     setInterrupt(20, int20_handler);
+
     setInterrupt(0x76, irq_handler);
 
     __asm__ __volatile__ (
