@@ -17,11 +17,10 @@ typedef struct  __attribute__ ((__packed__)) {
 TKGlobalDescriptorTable *GDT;
 
 #define TYPE_DATA_READ_WRITE   2
-#define TYPE_TSS               9
 #define TYPE_CODE_EXECUTE_READ 10
 #define TYPE_CODE_CONFORMING   14
 
-#define NUM_DESCRIPTORS 6
+#define NUM_DESCRIPTORS 7
 
 void gdtMakeDescriptor(TKSegmentDescriptor *descriptor, unsigned int base, unsigned int limit, unsigned int privilege, unsigned int type, unsigned int nontss) {
     unsigned int granularity = 0;
@@ -49,30 +48,42 @@ void gdtMakeCallGate(TKSegmentDescriptor *descriptor, unsigned int segment, unsi
         (fn_entry & 0xffff) |           // Fn address (bits 0-15)
         ((segment & 0xffff) << 16));    // Segment (bits 0-23)
     descriptor->d2 = (
-        (fn_entry & 0xffff0000) |       // Fn address (bits 16-23)
+        (fn_entry & 0xffff0000) |       // Fn address (bits 16-31)
         (1 << 15) |                     // Present flag
         ((privilege & 0x3) << 13) |     // Privilege level (0-3)
         (params & 0xf) |                // params (0-15)
         0x0c00);                        // Type (12)
 }
 
+void gdtMakeTaskDescriptor(TKSegmentDescriptor *descriptor, unsigned int address, unsigned int privilege) {
+    descriptor->d1 = (
+        (0x67) |                        // TSS limit (bits 0-15)
+        ((address & 0xffff) << 16));    // TSS address (bits 0-23)
+    descriptor->d2 = (
+        ((address & 0xff0000) >> 16) |  // TSS address (bits 16-23)
+        (address & 0xff000000) |        // TSS address (bits 24-31)
+        (1 << 15) |                     // Present flag
+        ((privilege & 0x3) << 13) |     // Privilege level (0-3)
+        0x0900);                        // Type (9)
+}
+
 void gdtInit(void) {
     int i;
     void *kernel_tss;
     // TODO: Don't need a whole page for this, use a smaller allocation.
-    GDT = (TKGlobalDescriptorTable*)allocPage();
+    GDT = (TKGlobalDescriptorTable*)GDT_ADDR;
     GDT->limit = (NUM_DESCRIPTORS*8) - 1;
     GDT->base_address = (unsigned int)&GDT->descriptors[0];
     GDT->padding = 0xfefe;
 
-    kernel_tss = (void*)&GDT[NUM_DESCRIPTORS];
+    kernel_tss = (void*)&GDT[NUM_DESCRIPTORS+1];
 
     // Descriptor 0 [NULL descriptor]
     GDT->descriptors[0].d1 = 0;
     GDT->descriptors[0].d2 = 0;
 
     // Descriptor 0x08 [Kernel code]
-    gdtMakeDescriptor(&GDT->descriptors[1], 0, 0x88000, 0, TYPE_CODE_CONFORMING, 1);
+    gdtMakeDescriptor(&GDT->descriptors[1], 0, 0x88000, 0, TYPE_CODE_EXECUTE_READ, 1);
     // Descriptor 0x10 [Kernel data]
     gdtMakeDescriptor(&GDT->descriptors[2], 0x88000, 0xffffffff, 0, TYPE_DATA_READ_WRITE, 1);
 
@@ -84,15 +95,15 @@ void gdtInit(void) {
 
     // Descriptor 0x28 [Syscall call gate]
     gdtMakeCallGate(&GDT->descriptors[5], 0x08, (unsigned int)(void*)syscall_handler, 3, 2);
-    /*
-    // Descriptor 0x28 [Kernel TSS]
-    gdtMakeDescriptor(&GDT->descriptors[5], (unsigned int)kernel_tss, 0x67, 3, TYPE_TSS, 0);
+
+    // Descriptor 0x30 [Kernel TSS]
+    gdtMakeTaskDescriptor(&GDT->descriptors[6], (unsigned int)kernel_tss, 0);
 
     procInitKernelTSS(kernel_tss);
-    */
 
     __asm__ __volatile__ (
-        "lgdt (%0)"
-        : : "r" (GDT)
+        "lgdt (%0)\n" // Load global descriptor table
+        "ltr %%ax" // Load task register
+        : : "r" (GDT), "a" (0x30)
     );
 }

@@ -1,10 +1,11 @@
 // Dead simple heap allocator returns whole 4k pages
+#include "kernel.h"
 
 int current_page;
 
 void initHeap() {
     // Start a this page and keep handing out pages going up the address space
-    current_page = 0x100000;
+    current_page = KERNEL_HEAP_ADDR;
 }
 
 void *allocPage() {

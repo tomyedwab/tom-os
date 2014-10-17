@@ -64,7 +64,7 @@ unsigned int loadELF(const char *buffer) {
 
     proc_id = procInitUser();
 
-    printStr("String table: "); printShort(header->shstrndx); printStr("\n");
+    //printStr("String table: "); printShort(header->shstrndx); printStr("\n");
     stringTable = (ELFSection*)&buffer[header->shoff + header->shstrndx * header->shentsize];
     strings = &buffer[stringTable->offset];
 
@@ -72,12 +72,14 @@ unsigned int loadELF(const char *buffer) {
         void *phMem;
         ELFProgramHeader *pheader = (ELFProgramHeader*)&buffer[header->phoff + i * header->phentsize];
 
+        /*
         printStr("Header "); printByte(i); printStr(": "); printInt(pheader->type); printStr("\n");
         printStr("  vaddr "); printInt(pheader->v_addr);
         printStr(" paddr "); printInt(pheader->p_addr);
         printStr(" size "); printInt(pheader->filesz);
         printStr(" / "); printInt(pheader->memsz);
         printStr("\n");
+        */
 
         // Allocate a page at the requested vaddr
         phMem = allocPage();
@@ -114,6 +116,7 @@ unsigned int loadELF(const char *buffer) {
             printStr("\n");
             return;
         }
+        /*
         printStr("Section "); printByte(i);
         printStr(": ");
         printStr(&strings[section->name]);
@@ -127,11 +130,10 @@ unsigned int loadELF(const char *buffer) {
         printStr(" size ");
         printInt(section->size);
         printStr("\n");
+        */
 
         memcpy((void *)kernel_addr, (void *)&buffer[section->offset], section->size);
     }
-
-    // TODO: initialize stack
     
     printStr("Running ELF..."); printInt((unsigned int)header->entry); printStr("\n");
 

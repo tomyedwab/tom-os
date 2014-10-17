@@ -53,7 +53,7 @@ void setInterrupt(unsigned char interrupt, void *handler) {
 void initInterrupts() {
     InterruptTableHeader *header;
     int i;
-    interrupt_table = (InterruptTableDescriptor*)allocPage();
+    interrupt_table = (InterruptTableDescriptor*)INTERRUPT_TABLE_ADDR;
     printStr("Interrupt table: ");
     printInt((unsigned int)interrupt_table);
     printStr("\n");
@@ -77,13 +77,13 @@ void initInterrupts() {
     setInterrupt(5, int05_handler);
     setInterrupt(6, int06_handler);
     setInterrupt(7, int07_handler);
-    setInterrupt(8, exc_df_handler);
+    //setInterrupt(8, exc_df_handler);
     setInterrupt(9, int09_handler);
     setInterrupt(10, int10_handler);
     setInterrupt(11, int11_handler);
     setInterrupt(12, int12_handler);
-    setInterrupt(13, exc_gp_handler);
-    setInterrupt(14, exc_pf_handler);
+    //setInterrupt(13, exc_gp_handler);
+    //setInterrupt(14, exc_pf_handler);
     setInterrupt(15, int15_handler);
     setInterrupt(16, int16_handler);
     setInterrupt(17, int17_handler);

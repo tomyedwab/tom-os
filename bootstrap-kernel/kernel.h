@@ -3,6 +3,13 @@
 // Constants
 #define MAX_PROCESSES (4096/sizeof(TKProcessInfo))
 
+// Hard-coded addresses
+#define INTERRUPT_TABLE_ADDR      0x088000
+#define GDT_ADDR                  0x089000
+#define KERNEL_VMM_ADDR           0x100000
+#define KERNEL_SYSCALL_STACK_ADDR 0x101000
+#define KERNEL_HEAP_ADDR          0x104000
+
 // Typedefs
 typedef unsigned int *TKVPageDirectory;
 typedef unsigned int *TKVPageTable;

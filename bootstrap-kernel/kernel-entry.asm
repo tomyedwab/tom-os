@@ -37,9 +37,10 @@ user_process_jump:
     push ebp
     mov ebp, esp
     mov eax, [ebp+0x08] ; Directory
-    mov cr3, eax
     mov ebx, [ebp+0x0c] ; Stack pointer
     mov ecx, [ebp+0x10] ; Target address
+
+    mov cr3, eax ; Switch to user VMM
 
     mov ax, 0x23 ; Data segment
     mov ds, ax
@@ -57,11 +58,17 @@ user_process_jump:
 syscall_handler:
     push ebp
     mov ebp, esp
+    mov eax, cr3
+    push eax
+    mov eax, 0x100000
+    mov cr3, eax ; Switch to kernel VMM
     push dword [ebp+0x10] ; 2nd argument
     push dword [ebp+0x0c] ; 1st argument
     call syscallHandler
     add esp, 8
     pop ebp
+    pop eax
+    mov cr3, eax ; Restore user VMM
     iret
 
 exc_df_handler:
