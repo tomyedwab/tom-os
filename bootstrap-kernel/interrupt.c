@@ -23,6 +23,7 @@ extern void int18_handler();
 extern void int19_handler();
 extern void int20_handler();
 extern void irq_handler();
+extern void fail_handler();
 
 typedef struct __attribute__((__packed__)) {
     unsigned short limit;
@@ -53,6 +54,9 @@ void initInterrupts() {
     InterruptTableHeader *header;
     int i;
     interrupt_table = (InterruptTableDescriptor*)allocPage();
+    printStr("Interrupt table: ");
+    printInt((unsigned int)interrupt_table);
+    printStr("\n");
     header = (InterruptTableHeader *)&(interrupt_table[256]);
 
     // Clear table (64 * sizeof(unsigned int) * sizeof(ITD) bytes)
@@ -87,11 +91,12 @@ void initInterrupts() {
     setInterrupt(19, int19_handler);
     setInterrupt(20, int20_handler);
 
-    setInterrupt(0x76, irq_handler);
+    //setInterrupt(0x76, irq_handler);
+    //setInterrupt(0x77, irq_handler);
 
     __asm__ __volatile__ (
         "lidt (%0)\n"
-        "sti\n"
+//        "sti\n"
         : : "r" (header));
 }
 

@@ -18,9 +18,11 @@ output/bootstrap-kernel.bin: $(KERNEL_OBJECTS) bootstrap-kernel/kernel-entry.asm
 
 # Standard library
 output/libstd-tom.a: build/stdlib/printf.o
-	nasm stdlib/loader.asm -f elf -o build/stdlib/loader.o
 	mkdir -p output
 	ar rcs $@ build/stdlib/printf.o
+
+build/stdlib/loader.o: stdlib/loader.asm
+	nasm stdlib/loader.asm -f elf -o build/stdlib/loader.o
 
 # Sample application
 output/sample.elf: build/sample/main.o output/libstd-tom.a build/stdlib/loader.o

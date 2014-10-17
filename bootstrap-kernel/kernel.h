@@ -31,9 +31,9 @@ void outdw(unsigned short port, unsigned int data);
 // Virtual memory
 
 TKVPageDirectory vmmCreateDirectory();
-TKVPageTable vmmGetOrCreatePageTable(TKVPageDirectory directory, int prefix);
-void vmmSetPage(TKVPageTable table, int src, unsigned int dest);
-void vmmMapPage(TKVPageDirectory directory, unsigned int src, unsigned int dest);
+TKVPageTable vmmGetOrCreatePageTable(TKVPageDirectory directory, unsigned int prefix, int user);
+void vmmSetPage(TKVPageTable table, int src, unsigned int dest, int user);
+void vmmMapPage(TKVPageDirectory directory, unsigned int src, unsigned int dest, int user);
 void vmmSwap(TKVPageDirectory directory);
 
 // Processes

@@ -83,7 +83,7 @@ void gdtInit(void) {
     gdtMakeDescriptor(&GDT->descriptors[4], 0x90000, 0xffffffff, 3, TYPE_DATA_READ_WRITE, 1);
 
     // Descriptor 0x28 [Syscall call gate]
-    gdtMakeCallGate(&GDT->descriptors[5], 0x08, (void*)syscall_handler, 0, 2);
+    gdtMakeCallGate(&GDT->descriptors[5], 0x08, (unsigned int)(void*)syscall_handler, 3, 2);
     /*
     // Descriptor 0x28 [Kernel TSS]
     gdtMakeDescriptor(&GDT->descriptors[5], (unsigned int)kernel_tss, 0x67, 3, TYPE_TSS, 0);

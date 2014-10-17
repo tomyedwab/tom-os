@@ -42,7 +42,6 @@ user_process_jump:
     mov ecx, [ebp+0x10] ; Target address
 
     mov ax, 0x23 ; Data segment
-    mov ax, 0x10 ; Data segment (level 0)
     mov ds, ax
     mov es, ax
     mov fs, ax
@@ -58,12 +57,12 @@ user_process_jump:
 syscall_handler:
     push ebp
     mov ebp, esp
-    push 0x01
-    push 0x1234
+    push dword [ebp+0x10] ; 2nd argument
+    push dword [ebp+0x0c] ; 1st argument
     call syscallHandler
     add esp, 8
     pop ebp
-    ret
+    iret
 
 exc_df_handler:
     pop ebx
@@ -228,6 +227,6 @@ int20_handler:
 
 irq_handler:
     ; Send EOI
-    mov eax, 0x20
-    out 0x20, eax
+    mov al, 0x20
+    out 0x20, al
     iret
