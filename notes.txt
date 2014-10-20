@@ -18,7 +18,6 @@ At run time:
 
 
 TODO:
-- Use APIC to get timer running & implement sleep() correctly
 - Filesystem driver (ext2 or fat)
 - Multiprocessing / thread scheduler
 - Ethernet driver

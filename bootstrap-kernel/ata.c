@@ -2,18 +2,15 @@
 
 #define BASE_ADDRESS 0x1F0
 
-void sleep() {
-    int counter = 0;
-    int test = 0;
-    for (counter = 0; counter < 255; counter++) {
-        test += 1;
-    }
+void sleep(unsigned int count) {
+    int target = tk_system_counter + count;
+    while (tk_system_counter < target) { }
 }
 
 int waitForATABusy() {
     unsigned char b;
     do {
-        sleep();
+        sleep(100);
         b = inb(BASE_ADDRESS + 7);
         if ((b & 0x21) != 0) {
             unsigned char e = inb(BASE_ADDRESS + 1);
@@ -33,7 +30,7 @@ int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer) {
     // Select drive
     printStr("Reading from ATA...\n");
     outb(BASE_ADDRESS + 6, (0xE0 | (slavebit <<  4) | (LBA >> 24 & 0x0F))); 
-    sleep();
+    sleep(100);
     outb(BASE_ADDRESS + 2, (unsigned char)sectorCount);
     outb(BASE_ADDRESS + 3, LBA & 0xff); 
     outb(BASE_ADDRESS + 4, (LBA >> 8) & 0xff);
@@ -50,7 +47,7 @@ int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer) {
         if (index % 256 == 0) {
             status = waitForATABusy();
             if (status == 0) { return 0; }
-            sleep();
+            sleep(100);
         }
     }
     return 1;

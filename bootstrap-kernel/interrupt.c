@@ -172,9 +172,9 @@ void handleIRQ(unsigned int id) {
     if (id == 0) {
         // System clock!
         tk_system_counter++;
-        if (tk_system_counter % 1024 == 0) {
+        /*if (tk_system_counter % 1024 == 0) {
             printStr("Clock!\n");
-        }
+        }*/
         return;
     }
     printStr("IRQ! ");
