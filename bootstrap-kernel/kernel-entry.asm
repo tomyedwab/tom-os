@@ -76,7 +76,7 @@ syscall_handler:
     mov ebp, esp
     mov eax, cr3
     push eax
-    mov eax, 0x100000
+    mov eax, 0x200000
     mov cr3, eax ; Switch to kernel VMM
     push dword [ebp+0x10] ; 2nd argument
     push dword [ebp+0x0c] ; 1st argument
@@ -321,7 +321,7 @@ irq_handler:
     push eax
     mov eax, cr3
     push eax
-    mov eax, 0x100000
+    mov eax, 0x200000
     mov cr3, eax ; Switch to kernel VMM
 
     push ebx

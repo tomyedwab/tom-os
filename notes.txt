@@ -12,13 +12,15 @@ At run time:
 0x089000 - 0x089fff GDT
 0x08a000 - 0x090000 Kernel stack (boot.asm)
 0x0a0000 - 0x0fffff Video memory & ROMs
-0x100000 - 0x100fff Kernel VMM directory
-0x101000 - 0x103fff Kernel syscall stack
-0x104000 - *        Kernel heap
+0x100000 - 0x1fffff Unknown stuff VirtualBox cares about?
+0x200000 - 0x200fff Kernel VMM directory
+0x201000 - 0x203fff Kernel syscall stack
+0x204000 - *        Kernel heap
 
 
 TODO:
 - Filesystem driver (ext2 or fat)
+- Keyboard driver
 - Multiprocessing / thread scheduler
 - Ethernet driver
 - IP stack
