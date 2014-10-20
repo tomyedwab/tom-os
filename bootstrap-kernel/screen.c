@@ -3,18 +3,18 @@ int x, y;
 #define ROWS 25
 #define COLS 80
 
-void initScreen() {
-    video_memory = (char *)0xb8000;
-    x = 0;
-    y = 0;
-    clearScreen();
-}
-
 void clearScreen() {
     int i;
     for (i = 0; i < 2 * ROWS * COLS; i++) {
         *(video_memory + i) = 0;
     }
+}
+
+void initScreen() {
+    video_memory = (char *)0xb8000;
+    x = 0;
+    y = 0;
+    clearScreen();
 }
 
 void scrollScreen() {

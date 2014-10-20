@@ -17,7 +17,7 @@ void printStack() {
     for (i = 0; i < 128; i++) {
         if (i % 6 == 0) {
             printStr("\n");
-            printInt(&bp[i]);
+            printInt((unsigned int)&bp[i]);
             printStr(": ");
         }
         printInt(bp[i]);
@@ -26,17 +26,11 @@ void printStack() {
 }
 
 void syscallHandler(unsigned int func, unsigned int param1) {
-    printStr("Syscall! ");
-    printInt(func);
-    printStr(" ");
-    printInt(param1);
-    printStr("\n");
-    printStack();
-    /*
+    //printStack();
     if (func == 0x1) {
         // puts
-        printStr((const char*)param1);
+        const char *str = (const char*)procGetSharedPage(tk_cur_proc_id);
+        printStr((const char*)str);
         return;
     }
-    */
 }

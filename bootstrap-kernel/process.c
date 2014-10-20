@@ -1,6 +1,8 @@
 #include "kernel.h"
+#include "tk-user.h"
 
 TKProcessInfo *tk_process_table;
+TKVProcID tk_cur_proc_id = 1;
 
 // A struct describing a Task State Segment.
 typedef struct  __attribute__ ((__packed__)) {
@@ -77,6 +79,10 @@ void procInitKernelTSS(void *tss_ptr) {
     tss->ss0 = 0x10; // Kernel data segment
     tss->esp0 = KERNEL_SYSCALL_STACK_ADDR + 0x1000; // Stack pointer for entry through a call gate
     tss->iomap_base = sizeof(tss_entry_struct);
+
+    printStr("Kernel TSS: ");
+    printInt((unsigned int)tss_ptr);
+    printStr("\n");
 }
 
 TKVProcID procInitUser() {
@@ -114,10 +120,16 @@ TKVProcID procInitUser() {
     stack_page = (unsigned int)allocPage();
     vmmMapPage(info->vmm_directory, ((unsigned int)info->stack_vaddr) & 0xfffff000, stack_page, 1);
 
+    // Allocate a page for kernel/user shared memory
+    info->shared_page_addr = (unsigned int)allocPage();
+    vmmMapPage(info->vmm_directory, USER_SHARED_PAGE_VADDR, info->shared_page_addr, 1);
+
     printStr("Created process "); printByte(info->proc_id);
     printStr(" vmm: ");           printInt((unsigned int)info->vmm_directory);
     printStr(" stack: ");         printInt((unsigned int)info->stack_vaddr);
     printStr(" -> ");             printInt((unsigned int)stack_page);
+    printStr("\n");
+    printStr("Shared page: ");    printInt((unsigned int)info->shared_page_addr);
     printStr("\n");
     return info->proc_id;
 }
@@ -130,8 +142,18 @@ void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest) {
 
 unsigned int procActivateAndJump(TKVProcID proc_id, void *ip) {
     TKProcessInfo *info = &tk_process_table[proc_id-1];
+    unsigned int ret;
     // TODO: Verify process is valid
-    return user_process_jump(info->vmm_directory, info->stack_vaddr, ip);
+    tk_cur_proc_id = proc_id;
+    ret = user_process_jump(info->vmm_directory, info->stack_vaddr, ip);
+    tk_cur_proc_id = 1;
+    return ret;
+}
+
+void *procGetSharedPage(TKVProcID proc_id) {
+    // TODO: Verify process is valid
+    TKProcessInfo *info = &tk_process_table[proc_id-1];
+    return info->shared_page_addr;
 }
 
 void halt() {

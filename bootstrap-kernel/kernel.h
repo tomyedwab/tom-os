@@ -19,6 +19,7 @@ typedef struct {
     TKVProcID proc_id;
     TKVPageDirectory vmm_directory;
     void *stack_vaddr;
+    void *shared_page_addr;
 } TKProcessInfo;
 
 // kernel-entry.asm
@@ -50,6 +51,7 @@ void procInitKernelTSS(void *tss_ptr);
 TKVProcID procInitUser();
 void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest);
 unsigned int procActivateAndJump(TKVProcID proc_id, void *ip);
+void *procGetSharedPage(TKVProcID proc_id);
 void halt();
 
 extern TKProcessInfo *tk_process_table;
@@ -75,3 +77,7 @@ int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer);
 
 // Memcpy
 void memcpy(void *dest, void *src, int bytes);
+
+// Globals
+extern TKVProcID tk_cur_proc_id;
+

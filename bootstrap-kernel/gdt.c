@@ -85,7 +85,7 @@ void gdtInit(void) {
     // Descriptor 0x08 [Kernel code]
     gdtMakeDescriptor(&GDT->descriptors[1], 0, 0x88000, 0, TYPE_CODE_EXECUTE_READ, 1);
     // Descriptor 0x10 [Kernel data]
-    gdtMakeDescriptor(&GDT->descriptors[2], 0x88000, 0xffffffff, 0, TYPE_DATA_READ_WRITE, 1);
+    gdtMakeDescriptor(&GDT->descriptors[2], 0, 0xffffffff, 0, TYPE_DATA_READ_WRITE, 1);
 
     // Descriptor 0x18 [User code]
     gdtMakeDescriptor(&GDT->descriptors[3], 0x90000, 0xffffffff, 3, TYPE_CODE_EXECUTE_READ, 1);

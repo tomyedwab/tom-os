@@ -10,8 +10,11 @@ TKVPageDirectory vmmCreateDirectory() {
     return directory;
 }
 
-TKVPageTable vmmGetOrCreatePageTable(TKVPageDirectory directory, int prefix) {
+TKVPageTable vmmGetOrCreatePageTable(TKVPageDirectory directory, unsigned int prefix, int user) {
     if (directory[prefix] & 1 > 0) {
+        if (user != 0) {
+            directory[prefix] |= 0x4;
+        }
         return (TKVPageTable)(directory[prefix] & 0xfffff000);
     }
     int i;
@@ -24,18 +27,18 @@ TKVPageTable vmmGetOrCreatePageTable(TKVPageDirectory directory, int prefix) {
     }
 
     // Set "present" and "read/write" bits
-    directory[prefix] = ((unsigned int)table) & 0xfffff000 | 0x3;
+    directory[prefix] = ((unsigned int)table) & 0xfffff000 | 0x3 | ((user & 0x1) << 2);
     return table;
 }
 
-void vmmSetPage(TKVPageTable table, int src, unsigned int dest) {
+void vmmSetPage(TKVPageTable table, int src, unsigned int dest, int user) {
     // Set "present" and "read/write" bits
-    table[src] = dest & 0xfffff000 | 0x3;
+    table[src] = dest & 0xfffff000 | 0x3 | ((user & 0x1) << 2);
 }
 
-void vmmMapPage(TKVPageDirectory directory, unsigned int src, unsigned int dest) {
-    TKVPageTable table = vmmGetOrCreatePageTable(directory, src >> 22);
-    vmmSetPage(table, (src >> 12) & 0x3ff, dest);
+void vmmMapPage(TKVPageDirectory directory, unsigned int src, unsigned int dest, int user) {
+    TKVPageTable table = vmmGetOrCreatePageTable(directory, src >> 22, user);
+    vmmSetPage(table, (src >> 12) & 0x3ff, dest, user);
 }
 
 void vmmSwap(TKVPageDirectory directory) {

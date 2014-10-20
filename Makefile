@@ -3,7 +3,7 @@ KERNEL_OBJECTS=$(patsubst %.c, build/bootstrap-kernel/%.o, $(KERNEL_FILES))
 
 build/%.o: %.c
 	mkdir -p `dirname $@`
-	gcc -m32 -I. -ffreestanding -c $< -o $@
+	gcc -m32 -I. -I./include -ffreestanding -c $< -o $@
 
 # Bootloader
 output/bootsector.bin: bootsector/boot.asm
@@ -39,8 +39,8 @@ image: output/bootsector.bin output/bootstrap-kernel.bin output/libstd-tom.a out
 
 # Disassembly
 disasm: output/bootstrap-kernel.bin output/sample.elf
-	ndisasm -b 32 output/bootstrap-kernel.bin > output/bootstrap-kernel.bin.as
-	ndisasm -b 32 output/sample.elf > output/sample.elf.as
+	ndisasm -b 32 -o 0x8000 output/bootstrap-kernel.bin > output/bootstrap-kernel.bin.as
+	ndisasm -b 32 -e 128 -o 0x08048080 output/sample.elf > output/sample.elf.as
 
 vm: image disasm
 	rm -f boot.vhd

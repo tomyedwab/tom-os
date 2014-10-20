@@ -16,6 +16,7 @@
  */
 
 #include "printf.h"
+#include "tk-user.h"
 
 
 int isdigit(const char c)
@@ -41,19 +42,7 @@ int strnlen(const char *s, int max_len)
     return count;
 }
 
-void puts(const char *s);
-/*
-void puts(const char *s)
-{
-    // Do a syscall
-    __asm__ __volatile__ (
-        "mov $0x1, %%eax\n"
-        "mov %0, %%ebx\n"
-        "int $0x80"
-        : : "r" (s) : "%eax", "%ebx"
-    );
-}
-    */
+void puts();
 
 #define ZEROPAD 1               /* pad with zero */
 #define SIGN    2               /* unsigned/signed long */
@@ -324,17 +313,17 @@ int sprintf(char *buf, const char *fmt, ...)
 
 int printf(const char *fmt, ...)
 {
-        char printf_buf[1024];
-        va_list args;
-        int printed;
+    char *printf_buf = (char*)USER_SHARED_PAGE_VADDR;
+    va_list args;
+    int printed;
 
-        va_start(args, fmt);
-        printed = vsprintf(printf_buf, fmt, args);
-        va_end(args);
+    va_start(args, fmt);
+    printed = vsprintf(printf_buf, fmt, args);
+    va_end(args);
 
-        puts(printf_buf);
+    puts();
 
-        return printed;
+    return printed;
 }
 
 

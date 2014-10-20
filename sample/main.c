@@ -1,6 +1,9 @@
 #include <stdlib/printf.h>
 
 int main() {
-    printf("Hello, world: %X", 0x1234);
+    int i;
+    for (i = 0; i < 20; i++) {
+        printf("Hello, world: %d\n", i);
+    }
     return 0x1234;
 }

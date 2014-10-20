@@ -8,6 +8,20 @@ At boot time:
 At run time:
 0x000000 - 0x008000 Minidriver routines (?; up to 32kb)
 0x008000 - 0x088000 Kernel (kernel.c; up to 512kb)
-0x088000 - 0x090000 Kernel stack (boot.asm)
+0x088000 - 0x088fff Interrupt table
+0x089000 - 0x089fff GDT
+0x08a000 - 0x090000 Kernel stack (boot.asm)
 0x0a0000 - 0x0fffff Video memory & ROMs
-0x100000 - *        Kernel heap
+0x100000 - 0x100fff Kernel VMM directory
+0x101000 - 0x103fff Kernel syscall stack
+0x104000 - *        Kernel heap
+
+
+TODO:
+- Get APIC working (http://www.brokenthorn.com/Resources/OSDevPic.html)
+- Use APIC to get timer running & implement sleep() correctly
+- Filesystem driver (ext2 or fat)
+- Multiprocessing / thread scheduler
+- Ethernet driver
+- IP stack
+- TCP stack

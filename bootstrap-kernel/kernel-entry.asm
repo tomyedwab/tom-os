@@ -66,167 +66,138 @@ syscall_handler:
     push dword [ebp+0x0c] ; 1st argument
     call syscallHandler
     add esp, 8
-    pop ebp
     pop eax
+    pop ebp
     mov cr3, eax ; Restore user VMM
-    iret
+    retf 8
 
 exc_df_handler:
-    pop ebx
-    jmp $
     push 0x70
     call excDoubleFaultHandler
     add esp, 8 
     iret
 
 exc_gp_handler:
-    pop ebx
-    jmp $
     push 0x71
     call excGeneralProtectionFault
     add esp, 8 
     iret
 
 exc_pf_handler:
-    pop ebx
-    jmp $
     push 0x72
     call excPageFault
     add esp, 8 
     iret
 
 int00_handler:
-    jmp $
     push 0x00
     call reportInterruptHandler
     add esp, 4
     iret
 
 int01_handler:
-    jmp $
     push 0x01
     call reportInterruptHandler
     add esp, 4
     iret
 
 int02_handler:
-    jmp $
     push 0x02
     call reportInterruptHandler
     add esp, 4
     iret
 
 int03_handler:
-    jmp $
     push 0x03
     call reportInterruptHandler
     add esp, 4
     iret
 
 int04_handler:
-    jmp $
     push 0x04
     call reportInterruptHandler
     add esp, 4
     iret
 
 int05_handler:
-    jmp $
     push 0x05
     call reportInterruptHandler
     add esp, 4
     iret
 
 int06_handler:
-    jmp $
     push 0x06
     call reportInterruptHandler
     add esp, 4
     iret
 
 int07_handler:
-    jmp $
     push 0x07
     call reportInterruptHandler
     add esp, 4
     iret
 
 int09_handler:
-    jmp $
     push 0x09
     call reportInterruptHandler
     add esp, 4
     iret
 
 int10_handler:
-    pop ebx
-    jmp $
     push 0x0a
     call reportInterruptHandler
     add esp, 8
     iret
 
 int11_handler:
-    pop ebx
-    jmp $
     push 0x0b
     call reportInterruptHandler
     add esp, 8
     iret
 
 int12_handler:
-    pop ebx
-    jmp $
     push 0x0c
     call reportInterruptHandler
     add esp, 8
     iret
 
 int14_handler:
-    jmp $
     push 0x0e
     call reportInterruptHandler
     add esp, 4
     iret
 
 int15_handler:
-    jmp $
     push 0x0f
     call reportInterruptHandler
     add esp, 4
     iret
 
 int16_handler:
-    jmp $
     push 0x10
     call reportInterruptHandler
     add esp, 4
     iret
 
 int17_handler:
-    pop ebx
-    jmp $
     push 0x11
     call reportInterruptHandler
     add esp, 8
     iret
 
 int18_handler:
-    jmp $
     push 0x12
     call reportInterruptHandler
     add esp, 4
     iret
 
 int19_handler:
-    jmp $
     push 0x13
     call reportInterruptHandler
     add esp, 4
     iret
 
 int20_handler:
-    jmp $
     push 0x14
     call reportInterruptHandler
     add esp, 4
