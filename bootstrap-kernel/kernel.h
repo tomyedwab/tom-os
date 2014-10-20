@@ -36,6 +36,10 @@ void outw(unsigned short port, unsigned short data);
 unsigned int indw(unsigned short port);
 void outdw(unsigned short port, unsigned int data);
 
+// PIC
+
+void initPIC();
+
 // Virtual memory
 
 TKVPageDirectory vmmCreateDirectory();

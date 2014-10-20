@@ -18,7 +18,6 @@ At run time:
 
 
 TODO:
-- Get APIC working (http://www.brokenthorn.com/Resources/OSDevPic.html)
 - Use APIC to get timer running & implement sleep() correctly
 - Filesystem driver (ext2 or fat)
 - Multiprocessing / thread scheduler

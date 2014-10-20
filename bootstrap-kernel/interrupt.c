@@ -22,7 +22,22 @@ extern void int17_handler();
 extern void int18_handler();
 extern void int19_handler();
 extern void int20_handler();
-extern void irq_handler();
+extern void irq_handler_00();
+extern void irq_handler_01();
+extern void irq_handler_02();
+extern void irq_handler_03();
+extern void irq_handler_04();
+extern void irq_handler_05();
+extern void irq_handler_06();
+extern void irq_handler_07();
+extern void irq_handler_08();
+extern void irq_handler_09();
+extern void irq_handler_10();
+extern void irq_handler_11();
+extern void irq_handler_12();
+extern void irq_handler_13();
+extern void irq_handler_14();
+extern void irq_handler_15();
 extern void fail_handler();
 
 typedef struct __attribute__((__packed__)) {
@@ -91,12 +106,26 @@ void initInterrupts() {
     setInterrupt(19, int19_handler);
     setInterrupt(20, int20_handler);
 
-    //setInterrupt(0x76, irq_handler);
-    //setInterrupt(0x77, irq_handler);
+    setInterrupt(0x20, irq_handler_00);
+    setInterrupt(0x21, irq_handler_01);
+    setInterrupt(0x22, irq_handler_02);
+    setInterrupt(0x23, irq_handler_03);
+    setInterrupt(0x24, irq_handler_04);
+    setInterrupt(0x25, irq_handler_05);
+    setInterrupt(0x26, irq_handler_06);
+    setInterrupt(0x27, irq_handler_07);
+    setInterrupt(0x28, irq_handler_08);
+    setInterrupt(0x29, irq_handler_09);
+    setInterrupt(0x2a, irq_handler_10);
+    setInterrupt(0x2b, irq_handler_11);
+    setInterrupt(0x2c, irq_handler_12);
+    setInterrupt(0x2d, irq_handler_13);
+    setInterrupt(0x2e, irq_handler_14);
+    setInterrupt(0x2f, irq_handler_15);
 
     __asm__ __volatile__ (
         "lidt (%0)\n"
-//        "sti\n"
+        "sti\n"
         : : "r" (header));
 }
 
@@ -119,6 +148,15 @@ void excPageFault() {
 
 void reportInterruptHandler(unsigned int id) {
     printStr("Unhandled interrupt! ");
+    printByte(id);
+    printStr("\n");
+}
+
+void handleIRQ(unsigned int id) {
+    if (id == 0) {
+        return;
+    }
+    printStr("IRQ! ");
     printByte(id);
     printStr("\n");
 }

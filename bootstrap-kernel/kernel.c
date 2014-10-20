@@ -16,6 +16,9 @@ void main() {
     gdtInit();
     printStr("[OK] GDT\n");
 
+    initPIC();
+    printStr("[OK] PIC\n");
+
     initInterrupts();
     printStr("[OK] Interrupts\n");
 
