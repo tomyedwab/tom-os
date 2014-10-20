@@ -57,6 +57,7 @@ void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest);
 unsigned int procActivateAndJump(TKVProcID proc_id, void *ip);
 void *procGetSharedPage(TKVProcID proc_id);
 void halt();
+void printStack();
 
 extern TKProcessInfo *tk_process_table;
 
@@ -84,4 +85,4 @@ void memcpy(void *dest, void *src, int bytes);
 
 // Globals
 extern TKVProcID tk_cur_proc_id;
-
+extern unsigned long tk_system_counter;

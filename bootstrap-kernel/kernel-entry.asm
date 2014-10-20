@@ -220,79 +220,111 @@ int20_handler:
     iret
 
 irq_handler_00:
-    mov ecx, 0x00
+    push ebp
+    push ebx
+    mov ebx, 0x00
     jmp irq_handler
 
 irq_handler_01:
-    mov ecx, 0x01
+    push ebp
+    push ebx
+    mov ebx, 0x01
     jmp irq_handler
 
 irq_handler_02:
-    mov ecx, 0x02
+    push ebp
+    push ebx
+    mov ebx, 0x02
     jmp irq_handler
 
 irq_handler_03:
-    mov ecx, 0x03
+    push ebp
+    push ebx
+    mov ebx, 0x03
     jmp irq_handler
 
 irq_handler_04:
-    mov ecx, 0x04
+    push ebp
+    push ebx
+    mov ebx, 0x04
     jmp irq_handler
 
 irq_handler_05:
-    mov ecx, 0x05
+    push ebp
+    push ebx
+    mov ebx, 0x05
     jmp irq_handler
 
 irq_handler_06:
-    mov ecx, 0x06
+    push ebp
+    push ebx
+    mov ebx, 0x06
     jmp irq_handler
 
 irq_handler_07:
-    mov ecx, 0x07
+    push ebp
+    push ebx
+    mov ebx, 0x07
     jmp irq_handler
 
 irq_handler_08:
-    mov ecx, 0x08
+    push ebp
+    push ebx
+    mov ebx, 0x08
     jmp irq_handler
 
 irq_handler_09:
-    mov ecx, 0x09
+    push ebp
+    push ebx
+    mov ebx, 0x09
     jmp irq_handler
 
 irq_handler_10:
-    mov ecx, 0x10
+    push ebp
+    push ebx
+    mov ebx, 0x10
     jmp irq_handler
 
 irq_handler_11:
-    mov ecx, 0x11
+    push ebp
+    push ebx
+    mov ebx, 0x11
     jmp irq_handler
 
 irq_handler_12:
-    mov ecx, 0x12
+    push ebp
+    push ebx
+    mov ebx, 0x12
     jmp irq_handler
 
 irq_handler_13:
-    mov ecx, 0x13
+    push ebp
+    push ebx
+    mov ebx, 0x13
     jmp irq_handler
 
 irq_handler_14:
-    mov ecx, 0x14
+    push ebp
+    push ebx
+    mov ebx, 0x14
     jmp irq_handler
 
 irq_handler_15:
-    mov ecx, 0x15
+    push ebp
+    push ebx
+    mov ebx, 0x15
     jmp irq_handler
 
 irq_handler:
-    push ebp
     mov ebp, esp
 
+    push eax
     mov eax, cr3
     push eax
     mov eax, 0x100000
     mov cr3, eax ; Switch to kernel VMM
 
-    push ecx
+    push ebx
     call handleIRQ
     add esp, 4
 
@@ -301,6 +333,8 @@ irq_handler:
     out 0x20, al
 
     pop eax
-    leave
     mov cr3, eax ; Restore user VMM
+    pop eax
+    pop ebx
+    pop ebp
     iret

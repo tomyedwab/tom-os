@@ -1,5 +1,7 @@
 #include "kernel.h"
 
+unsigned long tk_system_counter;
+
 extern void syscall_handler_asm();
 extern void exc_df_handler();
 extern void exc_pf_handler();
@@ -65,10 +67,23 @@ void setInterrupt(unsigned char interrupt, void *handler) {
     desc->type_attr = 0x8E; // Present, privilege level 0, Seg = 0, Type = xE
 }
 
+void initTimer() {
+    tk_system_counter = 0;
+
+    outb(0x43, 0);
+
+    // Program the PIT for 1024 Hz (1,193,182 Hz / 1,024 Hz ~= 1165 = 0x486)
+    outb(0x40, 0x86);
+    outb(0x40, 0x04);
+}
+
 void initInterrupts() {
     InterruptTableHeader *header;
     int i;
     interrupt_table = (InterruptTableDescriptor*)INTERRUPT_TABLE_ADDR;
+
+    initTimer();
+
     printStr("Interrupt table: ");
     printInt((unsigned int)interrupt_table);
     printStr("\n");
@@ -153,7 +168,13 @@ void reportInterruptHandler(unsigned int id) {
 }
 
 void handleIRQ(unsigned int id) {
+    //printStack();
     if (id == 0) {
+        // System clock!
+        tk_system_counter++;
+        if (tk_system_counter % 1024 == 0) {
+            printStr("Clock!\n");
+        }
         return;
     }
     printStr("IRQ! ");
