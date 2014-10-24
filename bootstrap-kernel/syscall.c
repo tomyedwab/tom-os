@@ -8,4 +8,15 @@ void syscallHandler(unsigned int func, unsigned int param1) {
         printStr((const char*)str);
         return;
     }
+    if (func == 0x2) {
+        // flush_streams
+        // For now, just check stdout
+        TKMsgHeader *msg = streamReadMsg(procGetStdoutPointer(tk_cur_proc_id));
+        if (msg) {
+            if (msg->identifier == ID_PRINT_STRING) {
+                TKMsgPrintString *pmsg = (TKMsgPrintString*)msg;
+                printStr(pmsg->str);
+            }
+        }
+    }
 }

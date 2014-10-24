@@ -1,5 +1,10 @@
 Physical memory map:
 
+Disk layout:
+0x00000 - 0x001ff Boot sector (boot.asm)
+0x00200 - 0x003ff 2nd stage bootloader (boot.asm)
+0x00400 - 0x04200 Kernel (kernel.c)
+
 At boot time:
 0x00000 - 0x00200 Boot sector (boot.asm)
 0x00200 - 0x07e00 Bootloader stack (boot.asm)

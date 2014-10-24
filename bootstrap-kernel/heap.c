@@ -13,3 +13,9 @@ void *allocPage() {
     current_page += 0x1000;
     return (void *)page;
 }
+
+void *heapAllocContiguous(int num_pages) {
+    int page = current_page;
+    current_page += num_pages << 12;
+    return (void *)page;
+}

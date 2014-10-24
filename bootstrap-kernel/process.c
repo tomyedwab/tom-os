@@ -1,5 +1,5 @@
 #include "kernel.h"
-#include "tk-user.h"
+#include "streamlib.h"
 
 TKProcessInfo *tk_process_table;
 TKVProcID tk_cur_proc_id = 1;
@@ -121,8 +121,29 @@ TKVProcID procInitUser() {
     vmmMapPage(info->vmm_directory, ((unsigned int)info->stack_vaddr) & 0xfffff000, stack_page, 1);
 
     // Allocate a page for kernel/user shared memory
-    info->shared_page_addr = (unsigned int)allocPage();
-    vmmMapPage(info->vmm_directory, USER_SHARED_PAGE_VADDR, info->shared_page_addr, 1);
+    // TODO: Remove this and use stdin/stdout instead
+    info->shared_page_addr = (void *)allocPage();
+    vmmMapPage(info->vmm_directory, USER_SHARED_PAGE_VADDR, (unsigned int)info->shared_page_addr, 1);
+
+    // Allocate exactly one page each for stdin/stdout
+    // TODO: Handle multiple streams per process
+    // TODO: This won't work once there's more than one process
+    info->stdin = streamCreate(4096);
+    info->stdout = streamCreate(4096);
+    streamMapReader(info->stdin, info->proc_id, USER_STREAM_START_VADDR);
+    streamMapWriter(info->stdin, 1, KERNEL_STREAM_START_VADDR);
+    streamMapReader(info->stdout, 1, KERNEL_STREAM_START_VADDR + 0x1000);
+    streamMapWriter(info->stdout, info->proc_id, USER_STREAM_START_VADDR + 0x1000);
+
+    streamCreatePointer(info->stdin, &info->stdin_ptr);
+    {
+        // Send stdout stream via stdin
+        TKMsgInitStream *msg = streamCreateMsg(&info->stdin_ptr, ID_INIT_STREAM, sizeof(TKStreamPointer));
+        msg->pointer.buffer_ptr = KERNEL_STREAM_START_VADDR + 0x1000;
+        msg->pointer.cur_ptr = (TKMsgHeader*)msg->pointer.buffer_ptr;
+        msg->pointer.buffer_size = 4096;
+    }
+    streamCreatePointer(info->stdout, &info->stdout_ptr);
 
     printStr("Created process "); printByte(info->proc_id);
     printStr(" vmm: ");           printInt((unsigned int)info->vmm_directory);
@@ -154,6 +175,12 @@ void *procGetSharedPage(TKVProcID proc_id) {
     // TODO: Verify process is valid
     TKProcessInfo *info = &tk_process_table[proc_id-1];
     return info->shared_page_addr;
+}
+
+TKStreamPointer *procGetStdoutPointer(TKVProcID proc_id) {
+    // TODO: Verify process is valid
+    TKProcessInfo *info = &tk_process_table[proc_id-1];
+    return &info->stdout_ptr;
 }
 
 void halt() {

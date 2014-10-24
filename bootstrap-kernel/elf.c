@@ -106,15 +106,9 @@ unsigned int loadELF(const char *buffer) {
 
         for (j = 0; j < header->phnum - 1; j++) {
             ELFProgramHeader *pheader = (ELFProgramHeader*)&buffer[header->phoff + j * header->phentsize];
-            if ((section->addr & 0xfffff000) == pheader->v_addr) {
+            if ((section->addr & 0xfffff000) == (pheader->v_addr & 0xfffff000)) {
                 kernel_addr = (section->addr & 0xfff) + LOADER_VADDR_BASE + (j<<12);
             }
-        }
-        if (kernel_addr == 0) {
-            printStr("PROC ERROR: Cannot find page for address: ");
-            printInt(section->addr);
-            printStr("\n");
-            return;
         }
         /*
         printStr("Section "); printByte(i);
@@ -131,6 +125,13 @@ unsigned int loadELF(const char *buffer) {
         printInt(section->size);
         printStr("\n");
         */
+
+        if (kernel_addr == 0) {
+            printStr("PROC ERROR: Cannot find page for address: ");
+            printInt(section->addr);
+            printStr("\n");
+            return;
+        }
 
         memcpy((void *)kernel_addr, (void *)&buffer[section->offset], section->size);
     }

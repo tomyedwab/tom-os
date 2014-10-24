@@ -22,8 +22,11 @@ void main() {
     initInterrupts();
     printStr("[OK] Interrupts\n");
 
-    buffer = (unsigned char *)allocPage();
-    if (loadFromDisk(32, 8, buffer) == 1) {
+    streamInit();
+    printStr("[OK] Streams\n");
+
+    buffer = (unsigned char *)heapAllocContiguous(3);
+    if (loadFromDisk(34, 20, buffer) == 1) {
         unsigned int ret;
         printStr("Loaded app from disk.\n");
         ret = loadELF(buffer);

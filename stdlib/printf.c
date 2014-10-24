@@ -15,9 +15,9 @@
  *
  */
 
-#include "printf.h"
-#include "tk-user.h"
+#include "stdlib.h"
 
+char printf_tmp_buf[256];
 
 int isdigit(const char c)
 {
@@ -43,6 +43,7 @@ int strnlen(const char *s, int max_len)
 }
 
 void puts();
+void flush_streams();
 
 #define ZEROPAD 1               /* pad with zero */
 #define SIGN    2               /* unsigned/signed long */
@@ -311,7 +312,7 @@ int sprintf(char *buf, const char *fmt, ...)
         return i;
 }
 
-int printf(const char *fmt, ...)
+int printf_old(const char *fmt, ...)
 {
     char *printf_buf = (char*)USER_SHARED_PAGE_VADDR;
     va_list args;
@@ -327,3 +328,20 @@ int printf(const char *fmt, ...)
 }
 
 
+int printf(const char *fmt, ...)
+{
+    va_list args;
+    int printed;
+    TKMsgPrintString *msg;
+
+    va_start(args, fmt);
+    printed = vsprintf(printf_tmp_buf, fmt, args);
+    va_end(args);
+
+    msg = streamCreateMsg(&stdout_ptr, ID_PRINT_STRING, sizeof(TKMsgHeader) + printed + 1);
+    memcpy(&msg->str, printf_tmp_buf, printed + 1);
+
+    flush_streams();
+
+    return printed;
+}
