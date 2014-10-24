@@ -17,7 +17,7 @@ TKMsgHeader *streamCreateMsg(TKStreamPointer *pointer, TKMessageID identifier, u
     ret->length = length;
 
     // Increment cur_ptr
-    pointer->cur_ptr = (TKMsgHeader*)(((unsigned int)pointer->buffer_ptr) + cur_offset + length);
+    pointer->cur_ptr = (TKMsgHeader*)(((unsigned int)pointer->cur_ptr) + length);
     
     // Wrap cur_ptr around if we're past the first buffer_size bytes
     if (((unsigned int)pointer->cur_ptr) > ((unsigned int)pointer->buffer_ptr) + pointer->buffer_size) {

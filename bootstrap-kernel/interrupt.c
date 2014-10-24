@@ -176,7 +176,18 @@ void handleIRQ(unsigned int id) {
             printStr("Clock!\n");
         }*/
         return;
+
+    } else if (id == 1) {
+        // Keyboard!
+        unsigned char b = inb(0x60);
+        if (b == 0xfa) {
+            // Ack
+            return;
+        }
+        keyboardProcessCode(b);
+        return;
     }
+
     printStr("IRQ! ");
     printByte(id);
     printStr("\n");

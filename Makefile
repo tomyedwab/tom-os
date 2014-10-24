@@ -1,4 +1,4 @@
-KERNEL_FILES=gdt.c ports.c screen.c heap.c pic.c interrupt.c ata.c vmm.c process.c elf.c syscall.c memcpy.c stream.c kernel.c
+KERNEL_FILES=gdt.c ports.c screen.c heap.c pic.c interrupt.c keyboard.c ata.c vmm.c process.c elf.c syscall.c memcpy.c stream.c kernel.c
 KERNEL_OBJECTS=$(patsubst %.c, build/bootstrap-kernel/%.o, $(KERNEL_FILES))
 
 build/%.o: %.c

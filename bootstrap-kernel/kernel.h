@@ -100,6 +100,10 @@ void printInt(unsigned int num);
 // Interrupts
 void initInterrupts();
 
+// Keyboard
+void keyboardInit();
+void keyboardProcessCode(unsigned char code);
+
 // ATA driver
 int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer);
 

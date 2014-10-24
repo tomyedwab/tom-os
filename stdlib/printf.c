@@ -339,8 +339,11 @@ int printf(const char *fmt, ...)
     va_end(args);
 
     msg = streamCreateMsg(&stdout_ptr, ID_PRINT_STRING, sizeof(TKMsgHeader) + printed + 1);
-    memcpy(&msg->str, printf_tmp_buf, printed + 1);
+    if (!msg) {
+        return 0;
+    }
 
+    memcpy(&msg->str, printf_tmp_buf, printed + 1);
     flush_streams();
 
     return printed;

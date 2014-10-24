@@ -25,7 +25,6 @@ At run time:
 
 TODO:
 - Filesystem driver (ext2 or fat)
-- Keyboard driver
 - Multiprocessing / thread scheduler
 - Ethernet driver
 - IP stack

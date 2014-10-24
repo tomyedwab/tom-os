@@ -22,6 +22,9 @@ void main() {
     initInterrupts();
     printStr("[OK] Interrupts\n");
 
+    keyboardInit();
+    printStr("[OK] Keyboard\n");
+
     streamInit();
     printStr("[OK] Streams\n");
 

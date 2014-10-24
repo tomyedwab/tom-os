@@ -138,7 +138,7 @@ TKVProcID procInitUser() {
     streamCreatePointer(info->stdin, &info->stdin_ptr);
     {
         // Send stdout stream via stdin
-        TKMsgInitStream *msg = streamCreateMsg(&info->stdin_ptr, ID_INIT_STREAM, sizeof(TKStreamPointer));
+        TKMsgInitStream *msg = streamCreateMsg(&info->stdin_ptr, ID_INIT_STREAM, sizeof(TKMsgInitStream));
         msg->pointer.buffer_ptr = KERNEL_STREAM_START_VADDR + 0x1000;
         msg->pointer.cur_ptr = (TKMsgHeader*)msg->pointer.buffer_ptr;
         msg->pointer.buffer_size = 4096;
@@ -181,6 +181,12 @@ TKStreamPointer *procGetStdoutPointer(TKVProcID proc_id) {
     // TODO: Verify process is valid
     TKProcessInfo *info = &tk_process_table[proc_id-1];
     return &info->stdout_ptr;
+}
+
+TKStreamPointer *procGetStdinPointer(TKVProcID proc_id) {
+    // TODO: Verify process is valid
+    TKProcessInfo *info = &tk_process_table[proc_id-1];
+    return &info->stdin_ptr;
 }
 
 void halt() {
