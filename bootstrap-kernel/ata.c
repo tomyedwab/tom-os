@@ -14,7 +14,7 @@ int waitForATABusy() {
         b = inb(BASE_ADDRESS + 7);
         if ((b & 0x21) != 0) {
             unsigned char e = inb(BASE_ADDRESS + 1);
-            printStr("Drive error! "); printByte(b); printStr(" "); printByte(e); printStr("\n");
+            kprintf("Drive error! %02x %02x\n", b, e);
             return 0;
         }
     } while ((b & 0x80) != 0);

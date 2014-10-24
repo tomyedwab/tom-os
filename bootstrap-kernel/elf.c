@@ -64,7 +64,7 @@ unsigned int loadELF(const char *buffer) {
 
     proc_id = procInitUser();
 
-    //printStr("String table: "); printShort(header->shstrndx); printStr("\n");
+    //kprintf("String table: %04x\n", header->shstrndx);
     stringTable = (ELFSection*)&buffer[header->shoff + header->shstrndx * header->shentsize];
     strings = &buffer[stringTable->offset];
 
@@ -73,12 +73,8 @@ unsigned int loadELF(const char *buffer) {
         ELFProgramHeader *pheader = (ELFProgramHeader*)&buffer[header->phoff + i * header->phentsize];
 
         /*
-        printStr("Header "); printByte(i); printStr(": "); printInt(pheader->type); printStr("\n");
-        printStr("  vaddr "); printInt(pheader->v_addr);
-        printStr(" paddr "); printInt(pheader->p_addr);
-        printStr(" size "); printInt(pheader->filesz);
-        printStr(" / "); printInt(pheader->memsz);
-        printStr("\n");
+        kprintf("Header %d: %d\n", i, pheader->type);
+        kprintf("  vaddr %X paddr %X size %X / %X\n", pheader->v_addr, pheader->p_addr, pheader->filesz, pheader->memsz);
         */
 
         // Allocate a page at the requested vaddr
@@ -87,13 +83,7 @@ unsigned int loadELF(const char *buffer) {
         procMapPage(proc_id, (unsigned int)pheader->v_addr, (unsigned int)phMem);
         // Map to kernel memory space as well
         procMapPage(1, LOADER_VADDR_BASE + (i<<12), (unsigned int)phMem);
-        printStr("Mapped ");
-        printInt(pheader->v_addr);
-        printStr(" to ");
-        printInt((unsigned int)phMem);
-        printStr(", Kernel: ");
-        printInt(LOADER_VADDR_BASE + (i<<12));
-        printStr("\n");
+        kprintf("Mapped %X to %x, Kernel: %X\n", pheader->v_addr, (unsigned int)phMem, LOADER_VADDR_BASE + (i<<12));
     }
 
     for (i = 0; i < header->shnum - 1; i++) {
@@ -111,32 +101,19 @@ unsigned int loadELF(const char *buffer) {
             }
         }
         /*
-        printStr("Section "); printByte(i);
-        printStr(": ");
-        printStr(&strings[section->name]);
-        printStr("\n");
-        printStr("  addr ");
-        printInt(section->addr);
-        printStr("  kernel ");
-        printInt(kernel_addr);
-        printStr(" offset ");
-        printInt(section->offset);
-        printStr(" size ");
-        printInt(section->size);
-        printStr("\n");
+        kprintf("Section %d: %s\n", i, &strings[section->name]);
+        kprintf("  addr %X  kernel %X offset %X size %X\n", section->addr, kernel_addr, section->offset, section->size);
         */
 
         if (kernel_addr == 0) {
-            printStr("PROC ERROR: Cannot find page for address: ");
-            printInt(section->addr);
-            printStr("\n");
+            kprintf("PROC ERROR: Cannot find page for address: %X\n", section->addr);
             return;
         }
 
         memcpy((void *)kernel_addr, (void *)&buffer[section->offset], section->size);
     }
     
-    printStr("Running ELF..."); printInt((unsigned int)header->entry); printStr("\n");
+    kprintf("Running ELF... %X\n", header->entry);
 
     // Switch to the process memory space & immediately jump
     ret = procActivateAndJump(proc_id, header->entry);

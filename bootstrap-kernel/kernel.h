@@ -97,6 +97,9 @@ void printByte(unsigned char byte);
 void printShort(unsigned short num);
 void printInt(unsigned int num);
 
+// Kprintf
+int kprintf(const char *fmt, ...);
+
 // Interrupts
 void initInterrupts();
 

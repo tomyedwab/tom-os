@@ -63,9 +63,7 @@ void procInitKernel() {
         vmmSetPage(table, i, i << 12, 0);
     }
 
-    printStr("Created kernel process "); printByte(info->proc_id);
-    printStr(" vmm: ");                  printInt((unsigned int)info->vmm_directory);
-    printStr("\n");
+    kprintf("Created kernel process %d vmm: %X\n", info->proc_id, info->vmm_directory);
 
     vmmSwap(info->vmm_directory);
 }
@@ -80,9 +78,7 @@ void procInitKernelTSS(void *tss_ptr) {
     tss->esp0 = KERNEL_SYSCALL_STACK_ADDR + 0x1000; // Stack pointer for entry through a call gate
     tss->iomap_base = sizeof(tss_entry_struct);
 
-    printStr("Kernel TSS: ");
-    printInt((unsigned int)tss_ptr);
-    printStr("\n");
+    kprintf("Kernel TSS: %X\n", tss_ptr);
 }
 
 TKVProcID procInitUser() {
@@ -138,20 +134,16 @@ TKVProcID procInitUser() {
     streamCreatePointer(info->stdin, &info->stdin_ptr);
     {
         // Send stdout stream via stdin
-        TKMsgInitStream *msg = streamCreateMsg(&info->stdin_ptr, ID_INIT_STREAM, sizeof(TKMsgInitStream));
-        msg->pointer.buffer_ptr = KERNEL_STREAM_START_VADDR + 0x1000;
+        TKMsgInitStream *msg = (TKMsgInitStream*)streamCreateMsg(
+                &info->stdin_ptr, ID_INIT_STREAM, sizeof(TKMsgInitStream));
+        msg->pointer.buffer_ptr = (void*)(KERNEL_STREAM_START_VADDR + 0x1000);
         msg->pointer.cur_ptr = (TKMsgHeader*)msg->pointer.buffer_ptr;
         msg->pointer.buffer_size = 4096;
     }
     streamCreatePointer(info->stdout, &info->stdout_ptr);
 
-    printStr("Created process "); printByte(info->proc_id);
-    printStr(" vmm: ");           printInt((unsigned int)info->vmm_directory);
-    printStr(" stack: ");         printInt((unsigned int)info->stack_vaddr);
-    printStr(" -> ");             printInt((unsigned int)stack_page);
-    printStr("\n");
-    printStr("Shared page: ");    printInt((unsigned int)info->shared_page_addr);
-    printStr("\n");
+    kprintf("Created process %d vmm: %X stack %X -> %X\n", info->proc_id, info->vmm_directory, info->stack_vaddr, stack_page);
+    kprintf("Shared page: %X\n", info->shared_page_addr);
     return info->proc_id;
 }
 
@@ -203,19 +195,11 @@ void printStack() {
         "mov %%ebp, %1\n"
         : "=r" (sp), "=r" (bp)
     );
-    printStr("STACK ");
-    printInt((unsigned int)sp);
-    printStr(" BASE ");
-    printInt((unsigned int)bp);
-    printStr(" IP ");
-    printInt((unsigned int)&printStack);
+    kprintf("STACK %X BASE %X IP %X", sp, bp, &printStack);
     for (i = 0; i < 128; i++) {
         if (i % 6 == 0) {
-            printStr("\n");
-            printInt((unsigned int)&bp[i]);
-            printStr(": ");
+            kprintf("\n%X: ", &bp[i]);
         }
-        printInt(bp[i]);
-        printStr(" ");
+        kprintf("%X ", bp[i]);
     }
 }

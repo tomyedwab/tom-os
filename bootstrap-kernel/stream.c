@@ -30,15 +30,7 @@ TKStreamID streamCreate(unsigned int size) {
         ((unsigned int *)info->buffer_ptr)[i] = ID_EMPTY;
     }
 
-    printStr("Created stream ");
-    printByte(info->stream_id);
-    printStr(" at ");
-    printInt((unsigned int)info->buffer_ptr);
-    printStr(", size: ");
-    printInt(info->size);
-    printStr(", pages: ");
-    printInt(info->num_pages);
-    printStr("\n");
+    kprintf("Created stream %d at %X, size %X, %d pages\n", info->stream_id, info->buffer_ptr, info->size, info->num_pages);
 
     return info->stream_id;
 }
@@ -48,7 +40,7 @@ void streamMapReader(TKStreamID id, TKVProcID owner, unsigned int v_addr) {
     int i;
     TKStreamInfo *info = &tk_stream_table[id-1];
     info->read_owner = owner;
-    info->read_vaddr = v_addr;
+    info->read_vaddr = (void*)v_addr;
     for (i = 0; i < info->num_pages; i++) {
         procMapPage(owner, v_addr + (i << 12), (unsigned int)info->buffer_ptr + (i << 12));
     }
@@ -59,7 +51,7 @@ void streamMapWriter(TKStreamID id, TKVProcID owner, unsigned int v_addr) {
     int i;
     TKStreamInfo *info = &tk_stream_table[id-1];
     info->write_owner = owner;
-    info->write_vaddr = v_addr;
+    info->write_vaddr = (void*)v_addr;
     for (i = 0; i < info->num_pages; i++) {
         procMapPage(owner, v_addr + (i << 12), (unsigned int)info->buffer_ptr + (i << 12));
     }

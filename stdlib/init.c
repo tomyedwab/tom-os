@@ -15,5 +15,5 @@ void __init() {
     // Read in stdout information
     msg = (TKMsgInitStream*)streamReadMsg(&stdin_ptr);
     memcpy(&stdout_ptr, &msg->pointer, sizeof(TKStreamPointer));
-    streamMarkMessageRead(msg);
+    streamMarkMessageRead((TKMsgHeader*)msg);
 }

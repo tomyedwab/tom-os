@@ -8,14 +8,14 @@
  *
  * ----------------------------------------------------------------------- */
 
+#include "tk-user.h"
+
 /*
  * Oh, it's a waste of space, but oh-so-yummy for debugging.  This
  * version of printf() does not include 64-bit support.  "Live with
  * it."
  *
  */
-
-#include "stdlib.h"
 
 char printf_tmp_buf[256];
 
@@ -312,39 +312,17 @@ int sprintf(char *buf, const char *fmt, ...)
         return i;
 }
 
-int printf_old(const char *fmt, ...)
-{
-    char *printf_buf = (char*)USER_SHARED_PAGE_VADDR;
-    va_list args;
-    int printed;
 
-    va_start(args, fmt);
-    printed = vsprintf(printf_buf, fmt, args);
-    va_end(args);
-
-    puts();
-
-    return printed;
-}
-
-
-int printf(const char *fmt, ...)
+int kprintf(const char *fmt, ...)
 {
     va_list args;
     int printed;
-    TKMsgPrintString *msg;
 
     va_start(args, fmt);
     printed = vsprintf(printf_tmp_buf, fmt, args);
     va_end(args);
 
-    msg = (TKMsgPrintString*)streamCreateMsg(&stdout_ptr, ID_PRINT_STRING, sizeof(TKMsgHeader) + printed + 1);
-    if (!msg) {
-        return 0;
-    }
-
-    memcpy(&msg->str, printf_tmp_buf, printed + 1);
-    flush_streams();
+    printStr(printf_tmp_buf);
 
     return printed;
 }
