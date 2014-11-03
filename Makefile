@@ -1,6 +1,8 @@
 KERNEL_FILES=gdt.c ports.c screen.c kprintf.c heap.c pic.c interrupt.c keyboard.c ata.c vmm.c process.c elf.c syscall.c memcpy.c stream.c kernel.c
 KERNEL_OBJECTS=$(patsubst %.c, build/bootstrap-kernel/%.o, $(KERNEL_FILES))
 
+all: vm
+
 build/%.o: %.c
 	mkdir -p `dirname $@`
 	gcc -m32 -I. -I./include -ffreestanding -c $< -o $@
@@ -32,6 +34,30 @@ build/stdlib/loader.o: stdlib/loader.asm
 # Sample application
 output/sample.elf: build/sample/main.o output/libstd-tom.a output/libstream.a build/stdlib/loader.o
 	ld -o $@ -m elf_i386 build/stdlib/loader.o build/sample/main.o output/libstd-tom.a output/libstream.a
+
+# TomFS test suite
+output/tomfs_test: tomfs/tomfs.c tomfs/tomfs_test.c
+	gcc -o $@ $+
+	output/tomfs_test
+
+# TomFS make_fs utility
+output/tomfs_make_fs: tomfs/tomfs.c tomfs/make_fs.c
+	gcc -o $@ $+
+
+# TomFS FUSE driver
+output/tomfs_fuse: tomfs/tomfs.c tomfs/fuse.c
+	gcc -D_FILE_OFFSET_BITS=64 -o $@ $+ -lfuse
+
+# Filesystem
+output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/sample.elf
+	mkdir -p mnt
+	rm -f output/filesystem.img
+	output/tomfs_make_fs output/filesystem.img
+	# output/tomfs_fuse -o output/filesystem.img mnt
+	# TODO: Actually build the image
+	# mkdir -p mnt/sample
+	# cp output/sample.elf mnt/sample/
+	# fusermount -u mnt
 
 # Complete image
 image: output/bootsector.bin output/bootstrap-kernel.bin output/libstd-tom.a output/sample.elf
