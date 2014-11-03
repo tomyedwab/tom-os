@@ -90,7 +90,12 @@ typedef struct TFSFileEntry {
     char file_name[1];
 } TFSFileEntry;
 
+typedef struct FileHandle FileHandle;
+
 // Public API
+
+// Must be called before doing any other operations
+void tfsInit(TFS *tfs);
 
 // Returns 0 on successful initialization of a new filesystem
 int tfsInitFilesystem(TFS *tfs, int num_blocks);
@@ -117,20 +122,28 @@ TFSFileEntry *tfsReadNextEntry();
 // entries!
 int tfsWriteNextEntry(unsigned int mode, int block_index, const char *name);
 
+// Update an existing entry (returns 0 on success)
+int tfsUpdateEntry(int block_index, unsigned int mode, unsigned int size);
+
 // Write out any new directory entries in the currently open directory
 void tfsWriteDirectory(TFS *tfs);
 
 // Files API
 
-// Returns a block number for the new file, or 0 on failure
-int tfsCreateFile(TFS *tfs);
+// Creates a new file in the directory specified by 'path' with the given filename.
+// Returns a file handle for the new file, or NULL on failure
+FileHandle *tfsCreateFile(TFS *tfs, char *path, unsigned int mode, char *file_name);
+
+// Opens a file by path and filename
+// Returns a file handle for the file, or NULL on failure
+FileHandle *tfsOpenFile(TFS *tfs, char *path, char *file_name);
 
 // Writes 'size' bytes from 'buf' into the file at offset 'offset'
-int tfsWriteFile(TFS *tfs, unsigned int file_index, char *buf, unsigned int size, unsigned int offset);
+int tfsWriteFile(TFS *tfs, FileHandle *handle, const char *buf, unsigned int size, unsigned int offset);
 
 // Reads up to 'size' bytes from 'buf' from the file at the offset 'offset.
 // Returns the number of bytes actually read, or -1 on error.
-int tfsReadFile(TFS *tfs, unsigned int file_index, char *buf, unsigned int size, unsigned int offset);
+int tfsReadFile(TFS *tfs, FileHandle *handle, char *buf, unsigned int size, unsigned int offset);
 
 // Internals
 void tfsSetBitmapBit(char *bitmap_buf, int block_index);

@@ -2,6 +2,38 @@
 
 #include "tomfs.h"
 
+#define MAX_FILE_HANDLES 1024
+
+typedef struct FileHandle {
+    unsigned int block_index;
+    unsigned int directory_index;
+    unsigned int mode;
+    unsigned int current_size;
+} FileHandle;
+
+FileHandle gFileHandles[MAX_FILE_HANDLES];
+
+static FileHandle *get_file_handle(unsigned int block_index, unsigned int directory_index, unsigned int mode, unsigned int current_size) {
+    int i;
+    for (i = 0; i < MAX_FILE_HANDLES; i++) {
+        if (gFileHandles[i].block_index == 0) {
+            gFileHandles[i].block_index = block_index;
+            gFileHandles[i].directory_index = directory_index;
+            gFileHandles[i].mode = mode;
+            gFileHandles[i].current_size = current_size;
+            return &gFileHandles[i];
+        }
+    }
+    return NULL;
+}
+
+void tfsInit(TFS *tfs) {
+    int i;
+    for (i = 0; i < MAX_FILE_HANDLES; i++) {
+        gFileHandles[i].block_index = 0;
+    }
+}
+
 int tfsWriteFilesystemHeader(TFS *tfs) {
     int i;
     char block_buf[TFS_BLOCK_SIZE];
@@ -212,56 +244,138 @@ int tfsWriteNextEntry(unsigned int mode, int block_index, const char *name) {
     return 0;
 }
 
+int tfsUpdateEntry(int block_index, unsigned int mode, unsigned int size) {
+    TFSFileEntry *entry = (TFSFileEntry*)&directory_block[directory_offset];
+    directory_offset = sizeof(TFSBlockHeader);
+    while (entry->mode != 0) {
+        if (entry->block_index == block_index) {
+            // Found file!
+            entry->mode = mode;
+            entry->file_size = size;
+            return 0;
+        }
+
+        directory_offset += sizeof(TFSFileEntry) + entry->name_size - 1;
+        entry = (TFSFileEntry*)&directory_block[directory_offset];
+    }
+    return -1;
+}
+
 void tfsWriteDirectory(TFS *tfs) {
     tfsWriteBlockData(tfs, &directory_block[sizeof(TFSBlockHeader)], directory_index);
 }
 
-int tfsCreateFile(TFS *tfs) {
+FileHandle *tfsCreateFile(TFS *tfs, char *path, unsigned int mode, char *file_name) {
+    int block_index;
+    int directory_index;
+
+    // Find the directory
+    directory_index = tfsOpenPath(tfs, path);
+    if (directory_index < 0) {
+        return NULL;
+    }
+
     // 3 is the first free block on a filesystem with just one directory (root)
-    int block_index = tfsAllocateBlock(tfs, 3, tfs->header.current_node_id, 0, 0);
+    block_index = tfsAllocateBlock(tfs, 3, tfs->header.current_node_id, 0, 0);
     if (block_index == 0) {
-        return 0;
+        return NULL;
     }
 
     tfs->header.current_node_id++;
     if (tfsWriteFilesystemHeader(tfs) != 0) {
-        return 0;
+        return NULL;
     }
 
-    return block_index;
+    while (tfsReadNextEntry()) { }
+    if (tfsWriteNextEntry(mode, block_index, file_name) != 0) {
+        return NULL;
+    }
+    tfsWriteDirectory(tfs);
+
+    return get_file_handle(block_index, directory_index, mode, 0);
+}
+
+FileHandle *tfsOpenFile(TFS *tfs, char *path, char *file_name) {
+    TFSFileEntry *entry;
+    unsigned int directory_index;
+
+    directory_index = tfsOpenPath(tfs, path);
+    if (directory_index < 0) {
+        return NULL;
+    }
+    while (entry = tfsReadNextEntry()) {
+        int i;
+        for (i = 0; file_name[i]; i++) {
+            if (file_name[i] != entry->file_name[i]) {
+                break;
+            }
+        }
+        if (!file_name[i] && !entry->file_name[i]) {
+            return get_file_handle(entry->block_index, directory_index, entry->mode, entry->file_size);
+        }
+    }
+    return NULL;
 }
 
 // TODO: Check extents and support writing across multiple blocks / extending the file
-int tfsWriteFile(TFS *tfs, unsigned int file_index, char *buf, unsigned int size, unsigned int offset) {
+int tfsWriteFile(TFS *tfs, FileHandle *handle, const char *buf, unsigned int size, unsigned int offset) {
     int i;
     char block_buf[TFS_BLOCK_SIZE];
 
-    if (tfs->read_fn(tfs, block_buf, file_index) != 0) {
+    if (!handle || handle->block_index == 0) {
+        return -1;
+    }
+
+    if (tfs->read_fn(tfs, block_buf, handle->block_index) != 0) {
         return -1;
     }
 
     for (i = 0; i < size; i++) {
-        block_buf[i + offset] = buf[i];
+        block_buf[i + offset + sizeof(TFSBlockHeader)] = buf[i];
     }
 
-    if (tfs->write_fn(tfs, block_buf, file_index) != 0) {
+    if (tfs->write_fn(tfs, block_buf, handle->block_index) != 0) {
         return -1;
     }
+
+    if (offset + size > handle->current_size) {
+        // Update handle
+        handle->current_size = offset + size;
+
+        // Update directory
+        if (tfsOpenDirectory(tfs, handle->directory_index) == 0) {
+            tfsUpdateEntry(handle->block_index, handle->mode, handle->current_size);
+            tfsWriteDirectory(tfs);
+        }
+    }
+    
 
     return 0;
 }
 
 // TODO: Check extents and support writing across multiple blocks / extending the file
-int tfsReadFile(TFS *tfs, unsigned int file_index, char *buf, unsigned int size, unsigned int offset) {
+int tfsReadFile(TFS *tfs, FileHandle *handle, char *buf, unsigned int size, unsigned int offset) {
     int i;
     char block_buf[TFS_BLOCK_SIZE];
 
-    if (tfs->read_fn(tfs, block_buf, file_index) != 0) {
+    if (!handle || handle->block_index == 0) {
         return -1;
     }
 
+    if (tfs->read_fn(tfs, block_buf, handle->block_index) != 0) {
+        return -1;
+    }
+
+    if (offset > handle->current_size) {
+        return 0;
+    }
+
+    if (offset + size > handle->current_size) {
+        size = handle->current_size - offset;
+    }
+
     for (i = 0; i < size; i++) {
-        buf[i] = block_buf[offset + i];
+        buf[i] = block_buf[offset + i + sizeof(TFSBlockHeader)];
     }
     return size;
 }

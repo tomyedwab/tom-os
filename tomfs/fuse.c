@@ -12,16 +12,6 @@
 
 TFS *gTFS;
 
-#define MAX_FILE_HANDLES 1024
-
-typedef struct FileHandle {
-    unsigned int block_index;
-    unsigned int directory_index;
-    unsigned int current_size;
-} FileHandle;
-
-FileHandle gFileHandles[MAX_FILE_HANDLES];
-
 int tomfs_read_cb(struct TFS *fs, char *buf, unsigned int block) {
     fseek((FILE*)fs->user_data, block * TFS_BLOCK_SIZE, SEEK_SET);
     if (fread(buf, TFS_BLOCK_SIZE, 1, (FILE*)fs->user_data) != 1) {
@@ -60,19 +50,6 @@ static void tomfs_open_filesystem(char *filename) {
     }
 }
 
-static FileHandle *tomfs_get_file_handle(unsigned int block_index, unsigned int directory_index, unsigned int current_size) {
-    int i;
-    for (i = 0; i < MAX_FILE_HANDLES; i++) {
-        if (gFileHandles[i].block_index == 0) {
-            gFileHandles[i].block_index = block_index;
-            gFileHandles[i].directory_index = directory_index;
-            gFileHandles[i].current_size = current_size;
-            return &gFileHandles[i];
-        }
-    }
-    return NULL;
-}
-
 void split_path(const char *path, char *dir_path, char *file_name) {
     int i;
     int last_slash = 0;
@@ -109,7 +86,7 @@ static int tomfs_getattr(const char *path, struct stat *stbuf) {
         if (strcmp(file_name, entry->file_name) == 0) {
             stbuf->st_mode = entry->mode;
             stbuf->st_nlink = 1;
-            // TODO: stbuf->st_size for files
+            stbuf->st_size = entry->file_size;
             return 0;
         }
     }
@@ -137,32 +114,24 @@ static int tomfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 static int tomfs_open(const char *path, struct fuse_file_info *fi)
 {
-    TFSFileEntry *entry;
     unsigned int directory_index;
     char dir_path[1024];
     char file_name[256];
 
     split_path(path, dir_path, file_name);
 
-    directory_index = tfsOpenPath(gTFS, dir_path);
-    if (directory_index < 0) {
+    fi->fh = tfsOpenFile(gTFS, dir_path, file_name);
+    if (fi->fh == NULL) {
         return -ENOENT;
     }
-    while (entry = tfsReadNextEntry()) {
-        if (strcmp(file_name, entry->file_name) == 0) {
-            FileHandle *handle = tomfs_get_file_handle(entry->block_index, directory_index, entry->file_size);
-            fi->fh = handle;
-            return 0;
-        }
-    }
 
-    return -ENOENT;
+    return 0;
 }
 
 static int tomfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *info)
 {
     FileHandle *handle = info->fh;
-    int read = tfsReadFile(gTFS, handle->block_index, buf, size, offset);
+    int read = tfsReadFile(gTFS, handle, buf, size, offset);
     if (read < 0) {
         return -ENOENT;
     }
@@ -195,45 +164,29 @@ static int tomfs_mkdir(const char *path, mode_t mode) {
 static int tomfs_create(const char *path, mode_t mode, struct fuse_file_info *info) {
     char dir_path[1024];
     char file_name[256];
-    int file_index = tfsCreateFile(gTFS);
-    int directory_index;
-    FileHandle *handle;
-    if (file_index == 0) {
-        return -ENOMEM;
-    }
-
     split_path(path, dir_path, file_name);
 
-    directory_index = tfsOpenPath(gTFS, dir_path);
-    if (directory_index < 0) {
-        return -ENOENT;
-    }
-
-    while (tfsReadNextEntry()) { }
-
-    handle = tomfs_get_file_handle(file_index, directory_index, 0);
-    if (handle == NULL) {
+    info->fh = tfsCreateFile(gTFS, dir_path, mode, file_name);
+    if (info->fh == NULL) {
         return -ENOMEM;
     }
-    if (tfsWriteNextEntry(mode, file_index, file_name) != 0) {
-        return -ENOMEM;
-    }
-    tfsWriteDirectory(gTFS);
-
-    info->fh = handle;
 
     return 0;
 }
 
 static int tomfs_write(const char *path, const char *buf, size_t size, off_t off, struct fuse_file_info *info) {
     FileHandle *handle = info->fh;
-    if (tfsWriteFile(gTFS, handle->block_index, buf, size, off) != 0) {
+    if (tfsWriteFile(gTFS, handle, buf, size, off) != 0) {
         return -ENOENT;
     }
     return 0;
 }
 
 static int tomfs_flush(const char *path, struct fuse_file_info *info) {
+    return 0;
+}
+
+static int tomfs_getxattr(const char *path, const char *name, char *value, size_t size) {
     return 0;
 }
 
@@ -246,6 +199,7 @@ static struct fuse_operations tomfs_oper = {
     .create     = tomfs_create,
     .write      = tomfs_write,
     .flush      = tomfs_flush,
+    .getxattr   = tomfs_getxattr
 };
 
 
@@ -281,9 +235,7 @@ int main(int argc, char *argv[])
          printf("Could not open file %s!\n", conf.file);
      }
 
-     for (i = 0; i < MAX_FILE_HANDLES; i++) {
-         gFileHandles[i].block_index = 0;
-     }
+     tfsInit(gTFS);
 
      return fuse_main(args.argc, args.argv, &tomfs_oper, NULL);
 }

@@ -29,6 +29,8 @@ int main(int argc, const char *argv[]) {
         return -1;
     }
 
+    tfsInit(&tfs);
+
     tfs.read_fn = &read_fn;
     tfs.write_fn = &write_fn;
     tfs.user_data = fOut;
