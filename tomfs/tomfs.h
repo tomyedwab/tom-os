@@ -71,8 +71,12 @@ typedef struct TFS {
     TFSFilesystemHeader header;
 } TFS;
 
+#define TFS_DELETED_FILE 0xFFFFFFFF
+
 typedef struct TFSFileEntry {
     // The mode of the file or directory
+    // 0 signifies the end of the file entry list. TFS_DELETED_FILE is
+    // an empty entry that can be skipped.
     unsigned int mode;
 
     // The index of the first block for this file
@@ -128,6 +132,10 @@ int tfsUpdateEntry(int block_index, unsigned int mode, unsigned int size);
 // Write out any new directory entries in the currently open directory
 void tfsWriteDirectory(TFS *tfs);
 
+// Removes a directory from the parent directory & filesystem
+// Directory must be empty
+int tfsDeleteDirectory(TFS *tfs, const char *path, const char *dir_name);
+
 // Files API
 
 // Creates a new file in the directory specified by 'path' with the given filename.
@@ -145,9 +153,13 @@ int tfsWriteFile(TFS *tfs, FileHandle *handle, const char *buf, unsigned int siz
 // Returns the number of bytes actually read, or -1 on error.
 int tfsReadFile(TFS *tfs, FileHandle *handle, char *buf, unsigned int size, unsigned int offset);
 
+// Removes the file from the directory & filesystem
+int tfsDeleteFile(TFS *tfs, char *path, char *file_name);
+
 // Internals
 void tfsSetBitmapBit(char *bitmap_buf, int block_index);
 void tfsClearBitmapBit(char *bitmap_buf, int block_index);
 int tfsCheckBitmapBit(char *bitmap_buf, int block_index);
 int tfsAllocateBlock(TFS *tfs, int desired_block_index, unsigned int node_id, unsigned int initial_block, unsigned int previous_block);
 int tfsWriteBlockData(TFS *tfs, char *data, int block_index);
+int tfsDeallocateBlocks(TFS *tfs, int block_index);

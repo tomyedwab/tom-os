@@ -213,6 +213,11 @@ TFSFileEntry *tfsReadNextEntry() {
         // Mode = 0 signifies EOF
         return NULL;
     }
+    else if (entry->mode == TFS_DELETED_FILE) {
+        directory_offset += sizeof(TFSFileEntry) + entry->name_size - 1;
+        return tfsReadNextEntry();
+    }
+
     for (i = sizeof(TFSFileEntry); i < sizeof(TFSFileEntry) + entry->name_size - 1; i++) {
         directory_entry[i] = directory_block[directory_offset + i];
     }
@@ -245,8 +250,9 @@ int tfsWriteNextEntry(unsigned int mode, int block_index, const char *name) {
 }
 
 int tfsUpdateEntry(int block_index, unsigned int mode, unsigned int size) {
-    TFSFileEntry *entry = (TFSFileEntry*)&directory_block[directory_offset];
+    TFSFileEntry *entry;
     directory_offset = sizeof(TFSBlockHeader);
+    entry = (TFSFileEntry*)&directory_block[directory_offset];
     while (entry->mode != 0) {
         if (entry->block_index == block_index) {
             // Found file!
@@ -263,6 +269,53 @@ int tfsUpdateEntry(int block_index, unsigned int mode, unsigned int size) {
 
 void tfsWriteDirectory(TFS *tfs) {
     tfsWriteBlockData(tfs, &directory_block[sizeof(TFSBlockHeader)], directory_index);
+}
+
+int tfsDeleteDirectory(TFS *tfs, const char *path, const char *dir_name) {
+    TFSFileEntry *entry;
+    unsigned int directory_index;
+    int i, start;
+    char dir_path[1024];
+
+    // Open directory we are attempting to delete
+    for (i = 0; path[i]; i++) { dir_path[i] = path[i]; }
+    dir_path[i] = '/';
+    start = i + 1;
+    for (i = 0; dir_name[i]; i++) { dir_path[i + start] = dir_name[i]; }
+    dir_path[i + start] = '\0';
+
+    if (tfsOpenPath(tfs, dir_path) < 0) {
+        return -1;
+    }
+    // Directory must already be empty (except for . and ..)
+    tfsReadNextEntry();
+    tfsReadNextEntry();
+    if (tfsReadNextEntry() != NULL) {
+        return -1;
+    }
+
+    directory_index = tfsOpenPath(tfs, path);
+    if (directory_index < 0) {
+        return -1;
+    }
+    while (entry = tfsReadNextEntry()) {
+        int i;
+        for (i = 0; dir_name[i]; i++) {
+            if (dir_name[i] != entry->file_name[i]) {
+                break;
+            }
+        }
+        if (!dir_name[i] && !entry->file_name[i]) {
+            // Remove the entry & dellocate all the directory blocks
+            if (tfsUpdateEntry(entry->block_index, TFS_DELETED_FILE, 0) != 0 ||
+                tfsDeallocateBlocks(tfs, entry->block_index) != 0) {
+                return -1;
+            }
+            tfsWriteDirectory(tfs);
+            return 0;
+        }
+    }
+    return -1;
 }
 
 FileHandle *tfsCreateFile(TFS *tfs, char *path, unsigned int mode, char *file_name) {
@@ -378,6 +431,34 @@ int tfsReadFile(TFS *tfs, FileHandle *handle, char *buf, unsigned int size, unsi
         buf[i] = block_buf[offset + i + sizeof(TFSBlockHeader)];
     }
     return size;
+}
+
+int tfsDeleteFile(TFS *tfs, char *path, char *file_name) {
+    TFSFileEntry *entry;
+    unsigned int directory_index;
+
+    directory_index = tfsOpenPath(tfs, path);
+    if (directory_index < 0) {
+        return -1;
+    }
+    while (entry = tfsReadNextEntry()) {
+        int i;
+        for (i = 0; file_name[i]; i++) {
+            if (file_name[i] != entry->file_name[i]) {
+                break;
+            }
+        }
+        if (!file_name[i] && !entry->file_name[i]) {
+            // Remove the entry & dellocate all the file blocks
+            if (tfsUpdateEntry(entry->block_index, TFS_DELETED_FILE, 0) != 0 ||
+                tfsDeallocateBlocks(tfs, entry->block_index) != 0) {
+                return -1;
+            }
+            tfsWriteDirectory(tfs);
+            return 0;
+        }
+    }
+    return -1;
 }
 
 void tfsSetBitmapBit(char *bitmap_buf, int block_index) {
@@ -522,6 +603,26 @@ int tfsWriteBlockData(TFS *tfs, char *data, int block_index) {
     if (tfs->write_fn(tfs, block_buf, block_index) != 0) {
         return -1;
     }
+
+    return 0;
+}
+
+// TODO: Follow the linked list and deallocate all the blocks
+int tfsDeallocateBlocks(TFS *tfs, int block_index) {
+    char block_bitmap[TFS_BLOCK_SIZE];
+    int block_group_num = (block_index - 1) / TFS_BLOCK_GROUP_SIZE;
+    int block_num = (block_index - 1) % TFS_BLOCK_GROUP_SIZE;
+
+    if (tfs->read_fn(tfs, block_bitmap, 1 + block_group_num * TFS_BLOCK_GROUP_SIZE) != 0) {
+        return -1;
+    }
+
+    tfsClearBitmapBit(block_bitmap, block_num);
+    if (tfs->write_fn(tfs, block_bitmap, 1 + block_group_num * TFS_BLOCK_GROUP_SIZE) != 0) {
+        return -1;
+    }
+
+    return 0;
 
     return 0;
 }

@@ -190,6 +190,32 @@ static int tomfs_getxattr(const char *path, const char *name, char *value, size_
     return 0;
 }
 
+static int tomfs_unlink(const char *path) {
+    char dir_path[1024];
+    char file_name[256];
+
+    split_path(path, dir_path, file_name);
+
+    if (tfsDeleteFile(gTFS, dir_path, file_name) != 0) {
+        return -ENOENT;
+    }
+
+    return 0;
+}
+
+static int tomfs_rmdir(const char *path) {
+    char dir_path[1024];
+    char dir_name[256];
+
+    split_path(path, dir_path, dir_name);
+
+    if (tfsDeleteDirectory(gTFS, dir_path, dir_name) != 0) {
+        return -ENOENT;
+    }
+
+    return 0;
+}
+
 static struct fuse_operations tomfs_oper = {
 	.getattr	= tomfs_getattr,
 	.readdir	= tomfs_readdir,
@@ -199,7 +225,9 @@ static struct fuse_operations tomfs_oper = {
     .create     = tomfs_create,
     .write      = tomfs_write,
     .flush      = tomfs_flush,
-    .getxattr   = tomfs_getxattr
+    .getxattr   = tomfs_getxattr,
+    .unlink     = tomfs_unlink,
+    .rmdir      = tomfs_rmdir,
 };
 
 
