@@ -35,6 +35,12 @@ typedef struct {
 
     // Total number of *data* blocks in the filesystem
     unsigned int data_blocks;
+
+    // The current seed for the internal RNG
+    unsigned int seed;
+
+    // The offset into the primes table for our stride
+    unsigned short stride_offset;
 } TFSFilesystemHeader;
 
 typedef struct {

@@ -13,6 +13,15 @@ typedef struct FileHandle {
 
 FileHandle gFileHandles[MAX_FILE_HANDLES];
 
+// 60 prime numbers
+static int gPrimeNumberTable[] = {
+    179, 181, 191, 193, 197, 199, 211, 223, 227, 229,
+    233, 239, 241, 251, 257, 263, 269, 271, 277, 281,
+    283, 293, 307, 311, 313, 317, 331, 337, 347, 349,
+    353, 359, 367, 373, 379, 383, 389, 397, 401, 409,
+    419, 421, 431, 433, 439, 443, 449, 457, 461, 463,
+    467, 479, 487, 491, 499, 503, 509, 521, 523, 541 };
+
 static FileHandle *get_file_handle(unsigned int block_index, unsigned int directory_index, unsigned int mode, unsigned int current_size) {
     int i;
     for (i = 0; i < MAX_FILE_HANDLES; i++) {
@@ -545,6 +554,89 @@ int tfsAttemptToAllocateBlock(TFS *tfs, int block_index) {
     return 0;
 }
 
+int find_empty_block_recursive(char *block_bitmap, int level, int idx, int *seed, int stride, int modulo) {
+    int ret;
+    int bit_index = (1 << (14 - level)) + idx;
+    int byte_index = bit_index >> 3;
+    int bit_mask = 1 << (bit_index & 0x7);
+
+    if ((block_bitmap[byte_index] & bit_mask) != 0) {
+        // This subtree is full.
+        return -1;
+    }
+
+    if (level == 0) {
+        // We are at the block level, so we must have an available block
+        printf("FOUND BLOCK %d\n", idx); // donotcheckin
+        return idx;
+    }
+
+    // Flip a coin to determine whether to go left or right first
+    if ((*seed) % modulo < (modulo >> 1)) {
+        printf("TRAVERSE LEFT!\n"); // donotcheckin
+        *seed += stride;
+        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 0, seed, stride, modulo);
+        if (ret >= 0) {
+            return ret;
+        }
+        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 1, seed, stride, modulo);
+        if (ret >= 0) {
+            return ret;
+        }
+    } else {
+        printf("TRAVERSE RIGHT!\n"); // donotcheckin
+        *seed += stride;
+        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 1, seed, stride, modulo);
+        if (ret >= 0) {
+            return ret;
+        }
+        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 0, seed, stride, modulo);
+        if (ret >= 0) {
+            return ret;
+        }
+    }
+
+    // Didn't find one in either subtree. This means the block bitmap is invalid.
+    printf("INVALID BLOCK BITMAP!\n"); // donotcheckin
+    return -1;
+}
+
+int tfsFindEmptyBlock(TFS *tfs) {
+    int i;
+    char block_bitmap[TFS_BLOCK_SIZE];
+    int num_block_groups = (tfs->header.total_blocks + (TFS_BLOCK_GROUP_SIZE - 1)) / TFS_BLOCK_GROUP_SIZE;
+    int seed = tfs->header.seed;
+    int stride = gPrimeNumberTable[tfs->header.stride_offset];
+    int modulo = 1291; // TODO: Random modulo?
+    int found_block = -1;
+    for (i = 0; i < num_block_groups; i++) {
+        // Look for free blocks in group (seed % num_block_groups)
+        int block_group_num = seed % num_block_groups;
+        int block_num;
+
+        // Load the block bitmap for the block group
+        if (tfs->read_fn(tfs, block_bitmap, 1 + block_group_num * TFS_BLOCK_GROUP_SIZE) != 0) {
+            break;
+        }
+
+        block_num = find_empty_block_recursive(block_bitmap, 14, 0, &seed, stride, modulo);
+        if (block_num >= 0) {
+            // We found a block, return it
+            found_block = 1 + (block_group_num * TFS_BLOCK_GROUP_SIZE) + block_num;
+            break;
+        }
+        
+        seed += stride;
+    }
+
+    // Update our seed & stride offset
+    tfs->header.seed = seed;
+    tfs->header.stride_offset = (tfs->header.stride_offset + 1) % 60;
+    tfsWriteFilesystemHeader(tfs);
+
+    return found_block;
+}
+
 // TODO: Unit tests for this
 int tfsAllocateBlock(TFS *tfs, int desired_block_index, unsigned int node_id, unsigned int initial_block, unsigned int previous_block) {
     int i;
@@ -556,15 +648,11 @@ int tfsAllocateBlock(TFS *tfs, int desired_block_index, unsigned int node_id, un
     }
 
     if (block_index == 0) {
-        for (i = 0; i < 24; i++) {
-            // TODO: Pick a random block number and try again
-            desired_block_index++;
-            if (tfsAttemptToAllocateBlock(tfs, desired_block_index) == 0) {
-                block_index = desired_block_index;
-                break;
-            }
+        block_index = tfsFindEmptyBlock(tfs);
+        if (block_index < 0) {
+            return 0;
         }
-        if (block_index == 0) {
+        if (tfsAttemptToAllocateBlock(tfs, block_index) != 0) {
             return 0;
         }
     }

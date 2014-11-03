@@ -94,6 +94,8 @@ int test_init_handles_errors() {
     TFS tfs;
     
     tfs.write_fn = &error_fn;
+    tfsInit(&tfs);
+
     ASSERT_EQUALS(tfsInitFilesystem(&tfs, 2560), -1);
 
     return 0;
@@ -106,8 +108,10 @@ int test_init_writes_blocks() {
     tfs.read_fn = &dummy_count_fn;
     tfs.write_fn = &dummy_count_fn;
     tfs.user_data = &counter;
+    tfsInit(&tfs);
+
     ASSERT_EQUALS(tfsInitFilesystem(&tfs, 2560), 0);
-    ASSERT_EQUALS(counter, 2565);
+    ASSERT_EQUALS(counter, 2566);
 
     return 0;
 }
@@ -124,6 +128,7 @@ int test_init_works() {
     tfs.read_fn = &mem_read_fn;
     tfs.write_fn = &mem_write_fn;
     tfs.user_data = &mem_ptr;
+    tfsInit(&tfs);
     
     // There is no valid filesystem yet
     ASSERT_EQUALS(tfsOpenFilesystem(&tfs), -1);
@@ -139,10 +144,10 @@ int test_init_works() {
     ASSERT_EQUALS(header->total_blocks, 2560);
     ASSERT_EQUALS(header->data_blocks, 2558);
 
-    // Only one bit in the block bitmap should be set: the bit for the block
-    // containing the bitmap (block 0)
+    // Only two bits in the block bitmap should be set: the bit for the block
+    // containing the bitmap (block 0) and the root directory (block 1)
     ASSERT_EQUALS(validate_block_bitmap(&mem_ptr.base_addr[TFS_BLOCK_SIZE]), 0);
-    ASSERT_EQUALS(mem_ptr.base_addr[TFS_BLOCK_SIZE + 2048], 1);
+    ASSERT_EQUALS(mem_ptr.base_addr[TFS_BLOCK_SIZE + 2048], 3);
 
     // Now we can open the filesystem successfully
     ASSERT_EQUALS(tfsOpenFilesystem(&tfs), 0);
@@ -155,6 +160,7 @@ int test_open_handles_errors() {
     TFS tfs;
     
     tfs.read_fn = &error_fn;
+    tfsInit(&tfs);
     ASSERT_EQUALS(tfsOpenFilesystem(&tfs), -1);
 
     return 0;
