@@ -249,6 +249,68 @@ int test_allocate_blocks() {
     // Now all the blocks are full, we cannot allocate any more blocks
     ASSERT_EQUALS(tfsAllocateBlock(&tfs, 0, 1, 0, 0), 0);
     ASSERT_EQUALS(mem_ptr.overrun, 0);
+
+    return 0;
+}
+
+int test_write_files() {
+    int i;
+    TestMemPtr mem_ptr;
+    TFS tfs;
+    TFSFilesystemHeader *header;
+    FileHandle *handle;
+    char buf[TFS_BLOCK_DATA_SIZE*5];
+
+    mem_ptr.base_addr = malloc(2560 * TFS_BLOCK_SIZE);
+    mem_ptr.num_blocks = 2560;
+    mem_ptr.overrun = 0;
+    
+    tfs.read_fn = &mem_read_fn;
+    tfs.write_fn = &mem_write_fn;
+    tfs.user_data = &mem_ptr;
+    tfsInit(&tfs);
+    
+    // There is no valid filesystem yet
+    ASSERT_EQUALS(tfsOpenFilesystem(&tfs), -1);
+
+    // Create a filesystem
+    ASSERT_EQUALS(tfsInitFilesystem(&tfs, 2560), 0);
+    ASSERT_EQUALS(mem_ptr.overrun, 0);
+
+    // Write less than one block worth of data into a file
+    ASSERT_NOTEQUALS(handle = tfsCreateFile(&tfs, "", 0644, "test_single_block"), 0);
+    ASSERT_NOERROR(tfsWriteFile(&tfs, handle, buf, 64, 0));
+
+    // Write more than one block worth of data into a file, less than a
+    // block at a time
+    ASSERT_NOTEQUALS(handle = tfsCreateFile(&tfs, "", 0644, "test_small_writes"), 0);
+    for (i = 0; i < 5; i++) {
+        ASSERT_NOERROR(tfsWriteFile(&tfs, handle, buf, TFS_BLOCK_DATA_SIZE - 100, i * (TFS_BLOCK_DATA_SIZE - 100)));
+    }
+
+    // Write more than one block worth of data into a file, exactly a
+    // block at a time
+    ASSERT_NOTEQUALS(handle = tfsCreateFile(&tfs, "", 0644, "test_med_writes"), 0);
+    for (i = 0; i < 5; i++) {
+        ASSERT_NOERROR(tfsWriteFile(&tfs, handle, buf, TFS_BLOCK_DATA_SIZE, i * TFS_BLOCK_DATA_SIZE));
+    }
+
+    // Write more than one block worth of data into a file, more than a
+    // block at a time
+    ASSERT_NOTEQUALS(handle = tfsCreateFile(&tfs, "", 0644, "test_large_writes"), 0);
+    for (i = 0; i < 5; i++) {
+        ASSERT_NOERROR(tfsWriteFile(&tfs, handle, buf, TFS_BLOCK_DATA_SIZE + 100, i * (TFS_BLOCK_DATA_SIZE + 100)));
+    }
+
+    // Write 5 blocks worth' of data at one time
+    ASSERT_NOTEQUALS(handle = tfsCreateFile(&tfs, "", 0644, "test_huge_writes"), 0);
+    ASSERT_NOERROR(tfsWriteFile(&tfs, handle, buf, TFS_BLOCK_DATA_SIZE * 5, 0));
+
+    // Append to an existing file
+    ASSERT_NOTEQUALS(handle = tfsOpenFile(&tfs, "", "test_single_block"), 0);
+    ASSERT_NOERROR(tfsWriteFile(&tfs, handle, buf, 64, 64));
+
+    return 0;
 }
 
 int main() {
@@ -261,6 +323,7 @@ int main() {
     RUNTEST(test_init_writes_blocks);
     RUNTEST(test_init_works);
     RUNTEST(test_allocate_blocks);
+    RUNTEST(test_write_files);
     printf("All tests pass. Yay!\n");
     return 0;
 }

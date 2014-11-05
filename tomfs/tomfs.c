@@ -379,27 +379,91 @@ FileHandle *tfsOpenFile(TFS *tfs, char *path, char *file_name) {
     return NULL;
 }
 
-// TODO: Check extents and support writing across multiple blocks / extending the file
 int tfsWriteFile(TFS *tfs, FileHandle *handle, const char *buf, unsigned int size, unsigned int offset) {
-    int i;
+    int i, cur_offset, cur_block_index, next_block_index, bytes_to_write, block_offset, buf_offset;
     char block_buf[TFS_BLOCK_SIZE];
+    TFSBlockHeader *header = (TFSBlockHeader*)block_buf;
 
     if (!handle || handle->block_index == 0) {
         return -1;
     }
 
-    if (tfs->read_fn(tfs, block_buf, handle->block_index) != 0) {
+    if (offset > handle->current_size) {
+        // Can't start a write past the end of the file
         return -1;
     }
 
-    for (i = 0; i < size; i++) {
-        block_buf[i + offset + sizeof(TFSBlockHeader)] = buf[i];
+    cur_block_index = handle->block_index;
+    cur_offset = 0;
+    do {
+        if (tfs->read_fn(tfs, block_buf, cur_block_index) != 0) {
+            return -1;
+        }
+        if (offset - cur_offset < TFS_BLOCK_DATA_SIZE) {
+            // This block contains the start of our data
+            block_offset = offset - cur_offset;
+            break;
+        }
+        cur_offset += TFS_BLOCK_DATA_SIZE;
+        if (header->next_block == 0) {
+            if (offset - cur_offset == 0) {
+                // This write coincides with the beginning of a new block, so
+                // we don't expect it to exist yet. Create it.
+                header->next_block = tfsAllocateBlock(tfs, cur_block_index + 1, header->node_id, header->initial_block, cur_block_index);
+                if (header->next_block == 0) {
+                    // Failed to allocate block. Abort.
+                    return -1;
+                }
+                // Write the block to update the header
+                if (tfs->write_fn(tfs, block_buf, cur_block_index) != 0) {
+                    return -1;
+                }
+            } else {
+                // There is no block even though our file size dictates there
+                // out to be. Bail.
+                return -1;
+            }
+        }
+        cur_block_index = header->next_block;
+    } while (1);
+
+    bytes_to_write = size;
+    buf_offset = 0;
+    while (1) {
+        int block_bytes = (bytes_to_write > TFS_BLOCK_DATA_SIZE - block_offset) ? TFS_BLOCK_DATA_SIZE - block_offset : bytes_to_write;
+
+        for (i = 0; i < block_bytes; i++) {
+            block_buf[i + block_offset + sizeof(TFSBlockHeader)] = buf[i + buf_offset];
+        }
+        buf_offset += block_bytes;
+        bytes_to_write -= block_bytes;
+        block_offset = 0;
+
+        if (bytes_to_write == 0) {
+            break;
+        }
+
+        if (header->next_block == 0) {
+            // Allocate the next block before writing current block so we update
+            // the header appropriately
+            header->next_block = tfsAllocateBlock(tfs, cur_block_index + 1, header->node_id, header->initial_block, cur_block_index);
+            if (header->next_block == 0) {
+                // Failed to allocate block. Abort.
+                return -1;
+            }
+        }
+
+        if (tfs->write_fn(tfs, block_buf, cur_block_index) != 0) {
+            return -1;
+        }
+
+        cur_block_index = header->next_block;
+        if (tfs->read_fn(tfs, block_buf, cur_block_index) != 0) {
+            return -1;
+        }
     }
 
-    if (tfs->write_fn(tfs, block_buf, handle->block_index) != 0) {
-        return -1;
-    }
-
+    // Did we expand the file past its original size?
     if (offset + size > handle->current_size) {
         // Update handle
         handle->current_size = offset + size;
@@ -410,7 +474,6 @@ int tfsWriteFile(TFS *tfs, FileHandle *handle, const char *buf, unsigned int siz
             tfsWriteDirectory(tfs);
         }
     }
-    
 
     return 0;
 }
