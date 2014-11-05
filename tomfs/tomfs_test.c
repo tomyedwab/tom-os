@@ -5,7 +5,10 @@
 
 #define RUNTEST(x) { printf("Running " #x "...\n"); if (x() != 0) { printf("Test failed!\n"); return -1; } }
 #define ASSERT(x) if (!(x)) { printf("Assert failed: " #x "\n"); return -1; }
-#define ASSERT_EQUALS(x, y) { int z = (x); if (z != y) { printf("Assert failed: " #x " = %d != " #y "\n", z); return -1; } }
+#define ASSERT_EQUALS(x, y) { int z = (x); if (z != y) { printf("Assert failed: Expected " #x " = %d to equal " #y "\n", z); return -1; } }
+#define ASSERT_NOTEQUALS(x, y) { int z = (x); if (z == y) { printf("Assert failed: Expected " #x " = %d to NOT equal " #y "\n", z); return -1; } }
+#define ASSERT_NOERROR(x) { int z = (x); if (z < 0) { printf("Assert failed: Expected " #x " = %d to be >= 0\n", z); return -1; } }
+#define ASSERT_ERROR(x) { int z = (x); if (z >= 0) { printf("Assert failed: Expected " #x " = %d to be < 0\n", z); return -1; } }
 
 typedef struct {
     char *base_addr;
@@ -215,12 +218,49 @@ int test_set_bitmap() {
     return 0;
 }
 
+int test_allocate_blocks() {
+    int i;
+    TestMemPtr mem_ptr;
+    TFS tfs;
+    TFSFilesystemHeader *header;
+
+    mem_ptr.base_addr = malloc(2560 * TFS_BLOCK_SIZE);
+    mem_ptr.num_blocks = 2560;
+    mem_ptr.overrun = 0;
+    
+    tfs.read_fn = &mem_read_fn;
+    tfs.write_fn = &mem_write_fn;
+    tfs.user_data = &mem_ptr;
+    tfsInit(&tfs);
+    
+    // There is no valid filesystem yet
+    ASSERT_EQUALS(tfsOpenFilesystem(&tfs), -1);
+
+    // Create a filesystem
+    ASSERT_EQUALS(tfsInitFilesystem(&tfs, 2560), 0);
+    ASSERT_EQUALS(mem_ptr.overrun, 0);
+
+    // Keep allocating random blocks until the whole FS is full
+    // (The first block is already allocated by the root directory)
+    for (i = 0; i < tfs.header.data_blocks - 1; i++) {
+        ASSERT_NOTEQUALS(tfsAllocateBlock(&tfs, 0, 1, 0, 0), 0);
+        ASSERT_EQUALS(mem_ptr.overrun, 0);
+    }
+    // Now all the blocks are full, we cannot allocate any more blocks
+    ASSERT_EQUALS(tfsAllocateBlock(&tfs, 0, 1, 0, 0), 0);
+    ASSERT_EQUALS(mem_ptr.overrun, 0);
+}
+
 int main() {
+    // Low-level tests
+    RUNTEST(test_set_bitmap);
+
+    // High-level tests
     RUNTEST(test_init_handles_errors);
     RUNTEST(test_open_handles_errors);
     RUNTEST(test_init_writes_blocks);
     RUNTEST(test_init_works);
-    RUNTEST(test_set_bitmap);
+    RUNTEST(test_allocate_blocks);
     printf("All tests pass. Yay!\n");
     return 0;
 }

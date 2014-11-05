@@ -532,7 +532,6 @@ int tfsCheckBitmapBit(char *bitmap_buf, int block_num) {
     return (bitmap_buf[byte_offset] & bit_mask) ? 1 : 0;
 }
 
-// TODO: Unit tests for this
 int tfsAttemptToAllocateBlock(TFS *tfs, int block_index) {
     char block_bitmap[TFS_BLOCK_SIZE];
     int block_group_num = (block_index - 1) / TFS_BLOCK_GROUP_SIZE;
@@ -554,12 +553,19 @@ int tfsAttemptToAllocateBlock(TFS *tfs, int block_index) {
     return 0;
 }
 
-int find_empty_block_recursive(char *block_bitmap, int level, int idx, int *seed, int stride, int modulo) {
+int find_empty_block_recursive(char *block_bitmap, int level, int idx, int *seed, int stride, int modulo, int block_group_size) {
     int ret;
     int bit_index = (1 << (14 - level)) + idx;
     int byte_index = bit_index >> 3;
     int bit_mask = 1 << (bit_index & 0x7);
 
+    // Check for out-of-bounds first
+    if ((idx << level) >= block_group_size) {
+        // Block is past the end of the filesystem
+        return -1;
+    }
+
+    // Check the "subtree full" bit at this level
     if ((block_bitmap[byte_index] & bit_mask) != 0) {
         // This subtree is full.
         return -1;
@@ -567,37 +573,34 @@ int find_empty_block_recursive(char *block_bitmap, int level, int idx, int *seed
 
     if (level == 0) {
         // We are at the block level, so we must have an available block
-        printf("FOUND BLOCK %d\n", idx); // donotcheckin
         return idx;
     }
 
     // Flip a coin to determine whether to go left or right first
     if ((*seed) % modulo < (modulo >> 1)) {
-        printf("TRAVERSE LEFT!\n"); // donotcheckin
         *seed += stride;
-        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 0, seed, stride, modulo);
+        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 0, seed, stride, modulo, block_group_size);
         if (ret >= 0) {
             return ret;
         }
-        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 1, seed, stride, modulo);
+        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 1, seed, stride, modulo, block_group_size);
         if (ret >= 0) {
             return ret;
         }
     } else {
-        printf("TRAVERSE RIGHT!\n"); // donotcheckin
         *seed += stride;
-        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 1, seed, stride, modulo);
+        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 1, seed, stride, modulo, block_group_size);
         if (ret >= 0) {
             return ret;
         }
-        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 0, seed, stride, modulo);
+        ret = find_empty_block_recursive(block_bitmap, level - 1, (idx << 1) + 0, seed, stride, modulo, block_group_size);
         if (ret >= 0) {
             return ret;
         }
     }
 
-    // Didn't find one in either subtree. This means the block bitmap is invalid.
-    printf("INVALID BLOCK BITMAP!\n"); // donotcheckin
+    // Didn't find one in either subtree. This can happen legitimately if the
+    // right subtree extends beyond the end of the filesystem
     return -1;
 }
 
@@ -612,6 +615,10 @@ int tfsFindEmptyBlock(TFS *tfs) {
     for (i = 0; i < num_block_groups; i++) {
         // Look for free blocks in group (seed % num_block_groups)
         int block_group_num = seed % num_block_groups;
+        // The last block group may have fewer blocks than the rest, so we
+        // shouldn't return blocks past the end of the filesystem
+        int block_group_size = (i == (num_block_groups - 1)) ?
+            (tfs->header.total_blocks - 1) % TFS_BLOCK_GROUP_SIZE : TFS_BLOCK_GROUP_SIZE;
         int block_num;
 
         // Load the block bitmap for the block group
@@ -619,7 +626,7 @@ int tfsFindEmptyBlock(TFS *tfs) {
             break;
         }
 
-        block_num = find_empty_block_recursive(block_bitmap, 14, 0, &seed, stride, modulo);
+        block_num = find_empty_block_recursive(block_bitmap, 14, 0, &seed, stride, modulo, block_group_size);
         if (block_num >= 0) {
             // We found a block, return it
             found_block = 1 + (block_group_num * TFS_BLOCK_GROUP_SIZE) + block_num;
@@ -637,7 +644,6 @@ int tfsFindEmptyBlock(TFS *tfs) {
     return found_block;
 }
 
-// TODO: Unit tests for this
 int tfsAllocateBlock(TFS *tfs, int desired_block_index, unsigned int node_id, unsigned int initial_block, unsigned int previous_block) {
     int i;
     TFSBlockHeader header;
