@@ -440,6 +440,9 @@ int tfsWriteFile(TFS *tfs, FileHandle *handle, const char *buf, unsigned int siz
         block_offset = 0;
 
         if (bytes_to_write == 0) {
+            if (tfs->write_fn(tfs, block_buf, cur_block_index) != 0) {
+                return -1;
+            }
             break;
         }
 
@@ -478,29 +481,66 @@ int tfsWriteFile(TFS *tfs, FileHandle *handle, const char *buf, unsigned int siz
     return 0;
 }
 
-// TODO: Check extents and support writing across multiple blocks / extending the file
 int tfsReadFile(TFS *tfs, FileHandle *handle, char *buf, unsigned int size, unsigned int offset) {
-    int i;
+    int i, cur_offset, cur_block_index, next_block_index, bytes_to_read, block_offset, buf_offset;
     char block_buf[TFS_BLOCK_SIZE];
+    TFSBlockHeader *header = (TFSBlockHeader*)block_buf;
 
     if (!handle || handle->block_index == 0) {
         return -1;
     }
 
-    if (tfs->read_fn(tfs, block_buf, handle->block_index) != 0) {
+    if (offset > handle->current_size) {
+        // Can't start a read past the end of the file
         return -1;
     }
 
-    if (offset > handle->current_size) {
-        return 0;
+    cur_block_index = handle->block_index;
+    cur_offset = 0;
+    do {
+        if (tfs->read_fn(tfs, block_buf, cur_block_index) != 0) {
+            return -1;
+        }
+        if (offset - cur_offset < TFS_BLOCK_DATA_SIZE) {
+            // This block contains the start of our data
+            block_offset = offset - cur_offset;
+            break;
+        }
+        cur_offset += TFS_BLOCK_DATA_SIZE;
+        if (header->next_block == 0) {
+            // There is no block even though our file size dictates there
+            // out to be. Bail.
+            return -1;
+        }
+        cur_block_index = header->next_block;
+    } while (1);
+
+    bytes_to_read = size;
+    buf_offset = 0;
+    while (1) {
+        int block_bytes = (bytes_to_read > TFS_BLOCK_DATA_SIZE - block_offset) ? TFS_BLOCK_DATA_SIZE - block_offset : bytes_to_read;
+
+        for (i = 0; i < block_bytes; i++) {
+            buf[i + buf_offset] = block_buf[i + block_offset + sizeof(TFSBlockHeader)];
+        }
+        buf_offset += block_bytes;
+        bytes_to_read -= block_bytes;
+        block_offset = 0;
+
+        if (bytes_to_read == 0 || header->next_block == 0) {
+            break;
+        }
+
+        // Read the next block
+        cur_block_index = header->next_block;
+        if (tfs->read_fn(tfs, block_buf, cur_block_index) != 0) {
+            return -1;
+        }
     }
 
-    if (offset + size > handle->current_size) {
-        size = handle->current_size - offset;
-    }
-
-    for (i = 0; i < size; i++) {
-        buf[i] = block_buf[offset + i + sizeof(TFSBlockHeader)];
+    if (bytes_to_read > 0) {
+        // Hit the end of the file, so return the number of bytes actuall read
+        size -= bytes_to_read;
     }
     return size;
 }

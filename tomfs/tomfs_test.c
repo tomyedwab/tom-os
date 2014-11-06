@@ -313,6 +313,53 @@ int test_write_files() {
     return 0;
 }
 
+int test_read_files() {
+    int i, num;
+    TestMemPtr mem_ptr;
+    TFS tfs;
+    TFSFilesystemHeader *header;
+    FileHandle *handle;
+    char buf[TFS_BLOCK_DATA_SIZE*5];
+
+    mem_ptr.base_addr = malloc(2560 * TFS_BLOCK_SIZE);
+    mem_ptr.num_blocks = 2560;
+    mem_ptr.overrun = 0;
+    
+    tfs.read_fn = &mem_read_fn;
+    tfs.write_fn = &mem_write_fn;
+    tfs.user_data = &mem_ptr;
+    tfsInit(&tfs);
+    
+    // There is no valid filesystem yet
+    ASSERT_EQUALS(tfsOpenFilesystem(&tfs), -1);
+
+    // Create a filesystem
+    ASSERT_EQUALS(tfsInitFilesystem(&tfs, 2560), 0);
+    ASSERT_EQUALS(mem_ptr.overrun, 0);
+    
+    for (i = 0; i < TFS_BLOCK_DATA_SIZE * 5 / 4; i++) {
+        ((unsigned int *)buf)[i] = 0xffff - i;
+    }
+
+    // Write 5 blocks worth' of data at one time
+    ASSERT_NOTEQUALS(handle = tfsCreateFile(&tfs, "", 0644, "test_huge_writes"), 0);
+    ASSERT_NOERROR(tfsWriteFile(&tfs, handle, buf, TFS_BLOCK_DATA_SIZE * 5, 0));
+
+    // Read the ints back individually and verify they are correct
+    for (i = 0; i < TFS_BLOCK_DATA_SIZE * 5 / 4; i++) {
+        ASSERT_EQUALS(tfsReadFile(&tfs, handle, &num, 4, i*4), 4);
+        ASSERT_EQUALS(num, 0xffff - i);
+    }
+
+    // Read the entire buffer back
+    ASSERT_EQUALS(tfsReadFile(&tfs, handle, buf, TFS_BLOCK_DATA_SIZE * 5, 0), TFS_BLOCK_DATA_SIZE * 5);
+    for (i = 0; i < TFS_BLOCK_DATA_SIZE * 5 / 4; i++) {
+        ASSERT_EQUALS(((unsigned int *)buf)[i], 0xffff - i);
+    }
+
+    return 0;
+}
+
 int main() {
     // Low-level tests
     RUNTEST(test_set_bitmap);
@@ -324,6 +371,7 @@ int main() {
     RUNTEST(test_init_works);
     RUNTEST(test_allocate_blocks);
     RUNTEST(test_write_files);
+    RUNTEST(test_read_files);
     printf("All tests pass. Yay!\n");
     return 0;
 }
