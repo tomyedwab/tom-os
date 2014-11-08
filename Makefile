@@ -13,10 +13,10 @@ output/bootloader-stage1.bin: bootloader/stage1.asm
 	nasm bootloader/stage1.asm -f bin -o $@
 
 # Bootloader stage 2
-output/bootloader-stage2.bin: bootloader/stage2-entry.asm build/bootstrap-kernel/screen.o build/bootstrap-kernel/kprintf.o build/bootstrap-kernel/ports.o build/bootstrap-kernel/ata.o build/tomfs/tomfs.o build/bootloader/stage2.o
+output/bootloader-stage2.bin: bootloader/stage2-entry.asm build/bootstrap-kernel/screen.o build/bootstrap-kernel/ports.o build/bootstrap-kernel/ata.o build/tomfs/tomfs.o build/bootloader/stage2.o
 	mkdir -p output
 	nasm bootloader/stage2-entry.asm -f elf -o build/bootloader/stage2-entry.o
-	ld -o $@ -m elf_i386 -Ttext 0x8000 --oformat binary build/bootloader/stage2-entry.o build/bootstrap-kernel/screen.o build/bootstrap-kernel/kprintf.o build/bootstrap-kernel/ports.o build/bootstrap-kernel/ata.o build/tomfs/tomfs.o build/bootloader/stage2.o
+	ld -o $@ -m elf_i386 -Ttext 0x8000 --oformat binary build/bootloader/stage2-entry.o build/bootstrap-kernel/screen.o build/bootstrap-kernel/ports.o build/bootstrap-kernel/ata.o build/tomfs/tomfs.o build/bootloader/stage2.o
 
 # Stream library
 output/libstream.a: build/streamlib/write.o build/streamlib/read.o
@@ -60,9 +60,13 @@ output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/sample.elf 
 	rm -f output/filesystem.img.tmp
 	output/tomfs_make_fs output/filesystem.img.tmp
 	output/tomfs_fuse -o file=output/filesystem.img.tmp mnt
+	sleep 1
 	cp output/bootstrap-kernel.bin mnt/kernel
+	sleep 1
 	mkdir -p mnt/sample
+	sleep 1
 	cp output/sample.elf mnt/sample/sample.elf
+	sleep 1
 	fusermount -z -u mnt
 	mv output/filesystem.img.tmp output/filesystem.img
 

@@ -4,15 +4,17 @@
 
 int waitForATABusy() {
     unsigned char b;
+    printStr("WAIT FOR BUSY...\n");
     do {
         sleep(100);
         b = inb(BASE_ADDRESS + 7);
         if ((b & 0x21) != 0) {
             unsigned char e = inb(BASE_ADDRESS + 1);
-            kprintf("Drive error! %02x %02x\n", b, e);
+            //kprintf("Drive error! %02x %02x\n", b, e);
             return 0;
         }
     } while ((b & 0x80) != 0);
+    printStr("DONE\n");
     return b;
 }
 
@@ -23,8 +25,8 @@ int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer) {
 
     // Select drive
     printStr("Reading from ATA...\n");
+    waitForATABusy();
     outb(BASE_ADDRESS + 6, (0xE0 | (slavebit <<  4) | (LBA >> 24 & 0x0F))); 
-    sleep(100);
     outb(BASE_ADDRESS + 2, (unsigned char)sectorCount);
     outb(BASE_ADDRESS + 3, LBA & 0xff); 
     outb(BASE_ADDRESS + 4, (LBA >> 8) & 0xff);

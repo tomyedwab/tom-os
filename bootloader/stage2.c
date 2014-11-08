@@ -1,25 +1,42 @@
 #include <tomfs.h>
 
 void initScreen();
-int kprintf(const char *fmt, ...);
+
+#define BLOCK_CACHE_ADDR 0x204000
+
+// block_cache[idx] = the filesystem block index cached at address
+// BLOCK_CACHE_ADDR + 4096*(idx+1)
+unsigned int *block_cache;
+int block_cache_size;
 
 void sleep(unsigned int count) {
-    int i;
-    for (i = 0; i < count * 1000; i++) {
-        i <<= 1;
-        i >>= 1;
+    int i, x;
+    for (i = 0; i < count * 100; i++) {
+        x += 123;
     }
 }
 
 int read_fn(struct TFS *fs, char *buf, unsigned int block) {
-    // TODO: Cache these
+    int i;
+    // Check the cache
+    for (i = 0; i < block_cache_size; i++) {
+        if (block_cache[i] == block) {
+            char *cached_block = ((char*)BLOCK_CACHE_ADDR) + 4096 * (i+1);
+            for (i = 0; i < 4096; i++) {
+                buf[i] = cached_block[i];
+            }
+            return 0;
+        }
+    }
     // 8 sectors per block in our filesystem
     if (loadFromDisk(34 + (block << 3), 8, buf) == 1) {
-        unsigned int *words = buf;
-        kprintf("Read block %d\n", block);
+        char *cached_block = ((char*)BLOCK_CACHE_ADDR) + 4096 * (block_cache_size+1);
+        for (i = 0; i < 4096; i++) {
+            cached_block[i] = buf[i];
+        }
+        block_cache[block_cache_size++] = block;
         return 0;
     }
-    kprintf("Failed to read block %d.\n", block);
     return -1;
 }
 
@@ -32,28 +49,33 @@ void load_kernel() {
     FileHandle *file;
 
     initScreen();
-    kprintf("Bootloader stage 2 loaded.\n");
+    printStr("Bootloader stage 2 loaded.\n");
+
+    block_cache = (unsigned int*)BLOCK_CACHE_ADDR;
+    block_cache_size = 0;
 
     tfs.read_fn = read_fn;
     // We really don't want a write function at this moment
     tfsInit(&tfs, (FileHandle*)handle_storage, 8);
 
     if (tfsOpenFilesystem(&tfs) != 0) {
-        kprintf("Failed to open filesystem!\n");
+        printStr("Failed to open filesystem!\n");
         while (1) {};
     }
 
     file = tfsOpenFile(&tfs, "", "kernel");
     if (file == NULL) {
-        kprintf("Failed to open kernel!\n");
+        printStr("Failed to open kernel!\n");
         while (1) {};
     }
 
-    kprintf("Loading kernel...\n");
+    printStr("Loading kernel...\n");
     // Read up to 480kb to the kernel base address 0x10000
     if (tfsReadFile(&tfs, file, (char*)0x10000, 480*1024, 0) <= 0) {
-        kprintf("Failed to read kernel!\n");
+        printStr("Failed to read kernel!\n");
         while (1) {};
     }
+
+    printStr("Starting kernel...\n");
 }
 

@@ -9,7 +9,10 @@ void initHeap() {
 }
 
 void *allocPage() {
+    int i;
     int page = current_page;
+    for (i = 0; i < 4096; i++)
+        ((char*)page)[i] = 0;
     current_page += 0x1000;
     return (void *)page;
 }
