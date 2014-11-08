@@ -6,9 +6,10 @@
 
 typedef struct FileHandle {
     unsigned int block_index;
-    unsigned int directory_index;
+    FileHandle *directory;
     unsigned int mode;
     unsigned int current_size;
+    unsigned int ref_count;
 } FileHandle;
 
 FileHandle gFileHandles[MAX_FILE_HANDLES];
@@ -22,14 +23,24 @@ static int gPrimeNumberTable[] = {
     419, 421, 431, 433, 439, 443, 449, 457, 461, 463,
     467, 479, 487, 491, 499, 503, 509, 521, 523, 541 };
 
-static FileHandle *get_file_handle(unsigned int block_index, unsigned int directory_index, unsigned int mode, unsigned int current_size) {
+static FileHandle *get_file_handle(unsigned int block_index, FileHandle *directory, unsigned int mode, unsigned int current_size) {
     int i;
+    for (i = 0; i < MAX_FILE_HANDLES; i++) {
+        if (gFileHandles[i].block_index == block_index) {
+            gFileHandles[i].ref_count++;
+            return &gFileHandles[i];
+        }
+    }
     for (i = 0; i < MAX_FILE_HANDLES; i++) {
         if (gFileHandles[i].block_index == 0) {
             gFileHandles[i].block_index = block_index;
-            gFileHandles[i].directory_index = directory_index;
+            gFileHandles[i].directory = directory;
             gFileHandles[i].mode = mode;
             gFileHandles[i].current_size = current_size;
+            gFileHandles[i].ref_count = 1;
+            if (directory) {
+                directory->ref_count++;
+            }
             return &gFileHandles[i];
         }
     }
@@ -65,6 +76,7 @@ int tfsInitFilesystem(TFS *tfs, int num_blocks) {
     int i;
     char block_buf[TFS_BLOCK_SIZE];
     char bitmap_buf[TFS_BLOCK_SIZE];
+    FileHandle *handle;
 
     // Initialize header
     tfs->header.magic = TFS_MAGIC;
@@ -106,9 +118,11 @@ int tfsInitFilesystem(TFS *tfs, int num_blocks) {
     }
 
     // Create root directory
-    if (tfsCreateDirectory(tfs) == 0) {
+    if ((handle = tfsCreateDirectory(tfs, NULL, NULL)) == NULL) {
         return -1;
     }
+
+    tfsCloseHandle(handle);
 
     return 0;
 }
@@ -131,156 +145,238 @@ int tfsOpenFilesystem(TFS *tfs) {
     return 0;
 }
 
-int directory_index;
-unsigned char directory_block[TFS_BLOCK_SIZE];
-int directory_offset;
-unsigned char directory_entry[sizeof(TFSFileEntry) + 256];
-
-int tfsCreateDirectory(TFS *tfs) {
-    // 2 is the first free block on an empty filesystem
-    int block_index = tfsAllocateBlock(tfs, 2, tfs->header.current_node_id, 0, 0);
-    if (block_index == 0) {
-        return 0;
+FileHandle *tfsCreateDirectory(TFS *tfs, const char *path, const char *dir_name) {
+    FileHandle *handle = tfsCreateFile(tfs, path, 0040755, dir_name);
+    if (handle) {
+        tfsAppendDirectoryEntry(tfs, handle, 0040755, 0, 0, ".");
+        tfsAppendDirectoryEntry(tfs, handle, 0040755, 0, 0, "..");
     }
-
-    tfs->header.current_node_id++;
-    if (tfsWriteFilesystemHeader(tfs) != 0) {
-        return 0;
-    }
-
-    directory_index = block_index;
-    directory_offset = sizeof(TFSBlockHeader);
-    tfsWriteNextEntry(0040755, 0, ".");
-    tfsWriteNextEntry(0040755, 0, "..");
-
-    tfsWriteBlockData(tfs, &directory_block[sizeof(TFSBlockHeader)], block_index);
-
-    return block_index;
+    return handle;
 }
 
-int tfsOpenDirectory(TFS *tfs, int block_index) {
-    directory_index = block_index;
+unsigned long hash_filename(char *filename) {
+    unsigned long hash = 5381;
+    int c;
 
-    if (tfs->read_fn(tfs, directory_block, directory_index) != 0) {
+    while (c = *filename++)
+        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+    return hash;
+}
+
+// TODO: Reclaim space from deleted entries
+int tfsAppendDirectoryEntry(TFS *tfs, FileHandle *handle, unsigned int mode, unsigned int block_index, unsigned int file_size, char *filename) {
+    int i;
+    int entry_idx;
+    char *fpos;
+    TFSFileEntry entry;
+    TFSFilenameEntry name_entry;
+
+    entry.mode = mode;
+    entry.block_index = block_index;
+    entry.file_size = file_size;
+    entry.name_hash = (unsigned short)(hash_filename(filename));
+
+    entry_idx = handle->current_size / sizeof(TFSFileEntry);
+    entry.filename_entry = entry_idx;
+
+    fpos = filename;
+    i = 0;
+    do {
+        name_entry.mode = TFS_FILENAME_ENTRY;
+        name_entry.filename[i++] = *fpos;
+        if (i == 10 || !*fpos) {
+            name_entry.next_entry = entry_idx + 1;
+            if (tfsWriteFile(tfs, handle, (char*)&name_entry, sizeof(TFSFilenameEntry), entry_idx * sizeof(TFSFileEntry)) != sizeof(TFSFilenameEntry)) {
+                return -1;
+            }
+            entry_idx = name_entry.next_entry;
+            i = 0;
+        }
+    } while (*fpos++);
+
+    if (tfsWriteFile(tfs, handle, (char*)&entry, sizeof(TFSFileEntry), entry_idx * sizeof(TFSFileEntry)) != sizeof(TFSFileEntry)) {
         return -1;
     }
-    directory_offset = sizeof(TFSBlockHeader);
+
     return 0;
 }
 
-int tfsOpenPath(TFS *tfs, const char *path) {
+FileHandle *tfsOpenPath(TFS *tfs, const char *path) {
+    FileHandle *handle;
     TFSFileEntry *entry;
     int path_pos = 0;
+    char path_entry[256];
 
     if (path[path_pos] == '/') {
         path_pos++;
     }
 
-    // Open root
-    if (tfsOpenDirectory(tfs, 2) != 0) {
-        return -1;
+    // Open root directory
+    handle = get_file_handle(2, NULL, 0040755, tfs->header.root_dir_size);
+    if (handle == NULL) {
+        return NULL;
     }
 
     while (path[path_pos]) {
-        int next_index = 0;
-        while (entry = tfsReadNextEntry()) {
-            int c;
-            for (c = 0; c < entry->name_size; c++) {
-                if (entry->file_name[c] != path[path_pos + c]) {
-                    break;
-                }
-            }
-            if (c == entry->name_size &&
-                (path[path_pos + c] == '\0' || path[path_pos + c] == '/')) {
-                // Found!
-                path_pos += c;
-                next_index = entry->block_index;
-                break;
-            }
+        unsigned int mode, block_index, file_size;
+        int idx = 0;
+        FileHandle *prev_handle = handle;
+        while (path[idx + path_pos] && path[idx + path_pos] != '/' && idx < 255) {
+            path_entry[idx] = path[idx + path_pos];
+            idx++;
         }
-        if (next_index == 0) {
-            // Could not find the subdirectory
+        if (idx == 255) {
+            tfsCloseHandle(prev_handle);
             return -1;
         }
-
-        if (tfsOpenDirectory(tfs, next_index) != 0) {
-            // Could not open the subdirectory
-            return -1;
+        if (path[idx + path_pos] == '/') {
+            path_pos += idx + 1;
+        } else {
+            path_pos += idx;
+        }
+        path_entry[idx] = '\0';
+        if (tfsFindEntry(tfs, handle, path_entry, &mode, &block_index, &file_size) != 0) {
+            // Could not find the subdirectory. Release the parent handle.
+            tfsCloseHandle(handle);
+            return NULL;
+        }
+        // Found directory
+        handle = get_file_handle(block_index, handle, mode, file_size);
+        // Release the parent handle since the child handle has a reference to it
+        tfsCloseHandle(prev_handle);
+        if (!handle) {
+            return NULL;
         }
     }
-    return directory_index;
+    return handle;
 }
 
-TFSFileEntry *tfsReadNextEntry() {
-    int i;
-    TFSFileEntry *entry;
-    for (i = 0; i < sizeof(TFSFileEntry); i++) {
-        directory_entry[i] = directory_block[directory_offset + i];
-    }
-    entry = (TFSFileEntry*)directory_entry;
-    if (entry->mode == 0) {
-        // Mode = 0 signifies EOF
-        return NULL;
-    }
-    else if (entry->mode == TFS_DELETED_FILE) {
-        directory_offset += sizeof(TFSFileEntry) + entry->name_size - 1;
-        return tfsReadNextEntry();
-    }
-
-    for (i = sizeof(TFSFileEntry); i < sizeof(TFSFileEntry) + entry->name_size - 1; i++) {
-        directory_entry[i] = directory_block[directory_offset + i];
-    }
-    directory_entry[i] = '\0';
-    directory_offset += i;
-    return entry;
-}
-
-int tfsWriteNextEntry(unsigned int mode, int block_index, const char *name) {
-    // TODO: Handle spanning into the next block
-    int i;
-    TFSFileEntry *entry = (TFSFileEntry*)&directory_block[directory_offset];
-    if (entry->mode != 0) {
-        // Attempting to write over an existing entry
+int tfsReadNextEntry(TFS *tfs, FileHandle *directory, unsigned int *entry_index, unsigned int *mode, unsigned int *block_index, unsigned int *file_size, char *filename, int filename_size) {
+    int i, filename_entry;
+    char *fout;
+    TFSFileEntry entry;
+    TFSFilenameEntry name_entry;
+    int num_entries = directory->current_size / sizeof(TFSFileEntry);
+    if ((*entry_index) >= num_entries) {
         return -1;
     }
-    entry->mode = mode;
-    entry->block_index = block_index;
-    entry->file_size = 0;
-    entry->name_size = 0;
-    for (i = 0; name[i]; i++) {
-        entry->file_name[i] = name[i];
-        entry->name_size++;
+
+    while (1) {
+        if (tfsReadFile(tfs, directory, (char*)&entry, sizeof(TFSFileEntry), (*entry_index) * sizeof(TFSFileEntry)) != sizeof(TFSFileEntry)) {
+            return -1;
+        }
+        if (entry.mode != 0 && entry.mode != TFS_FILENAME_ENTRY) {
+            break;
+        }
+        if (++(*entry_index) >= num_entries) {
+            return -1;
+        }
     }
 
-    directory_offset += sizeof(TFSFileEntry) + entry->name_size - 1;
-    entry = (TFSFileEntry*)&directory_block[directory_offset];
-    entry->mode = 0;
+    *mode = entry.mode;
+    *block_index = entry.block_index;
+    *file_size = entry.file_size;
+    fout = filename;
+    filename_entry = entry.filename_entry;
+    while (1) {
+        if (tfsReadFile(tfs, directory, (char*)&name_entry, sizeof(TFSFilenameEntry),filename_entry * sizeof(TFSFileEntry)) != sizeof(TFSFileEntry)) {
+            return -1;
+        }
+        for (i = 0; i < 10; i++) {
+            *fout = name_entry.filename[i];
+            if (fout == &filename[filename_size - 1]) {
+                // Ran out of buffer space, so truncate.
+                *fout = '\0';
+            }
+            if (*fout == '\0') {
+                break;
+            }
+            fout++;
+        }
+        if (i < 10) {
+            break;
+        }
+        filename_entry = name_entry.next_entry;
+    }
+    ++(*entry_index);
     return 0;
 }
 
-int tfsUpdateEntry(int block_index, unsigned int mode, unsigned int size) {
-    TFSFileEntry *entry;
-    directory_offset = sizeof(TFSBlockHeader);
-    entry = (TFSFileEntry*)&directory_block[directory_offset];
-    while (entry->mode != 0) {
-        if (entry->block_index == block_index) {
-            // Found file!
-            entry->mode = mode;
-            entry->file_size = size;
-            return 0;
-        }
+int tfsFindEntry(TFS *tfs, FileHandle *directory, char *filename, unsigned int *mode, unsigned int *block_index, unsigned int *file_size) {
+    int i;
+    TFSFileEntry entry;
+    TFSFilenameEntry name_entry;
+    unsigned short name_hash = (unsigned short)hash_filename(filename);
+    int num_entries = directory->current_size / sizeof(TFSFileEntry);
 
-        directory_offset += sizeof(TFSFileEntry) + entry->name_size - 1;
-        entry = (TFSFileEntry*)&directory_block[directory_offset];
+    for (i = 0; i < num_entries; i++) {
+        if (tfsReadFile(tfs, directory, (char*)&entry, sizeof(TFSFileEntry), i * sizeof(TFSFileEntry)) != sizeof(TFSFileEntry)) {
+            return -1;
+        }
+        if (entry.name_hash == name_hash) {
+            // Verify by actually comparing the strings
+            int filename_entry = entry.filename_entry;
+            char *fcmp = filename;
+            int mismatch = 0;
+            while (1) {
+                if (tfsReadFile(tfs, directory, (char*)&name_entry, sizeof(TFSFilenameEntry), filename_entry * sizeof(TFSFileEntry)) != sizeof(TFSFileEntry)) {
+                    return -1;
+                }
+                for (i = 0; i < 10; i++) {
+                    if (*fcmp != name_entry.filename[i]) {
+                        mismatch = 1;
+                        break;
+                    }
+                    if (*fcmp == '\0') {
+                        // Both strings ended - we have a match
+                        break;
+                    }
+                    fcmp++;
+                }
+                if (mismatch == 1 || *fcmp == '\0') {
+                    break;
+                }
+                filename_entry = name_entry.next_entry;
+            }
+            if (mismatch == 0) {
+                // We have a full match on filename
+                *mode = entry.mode;
+                *block_index = entry.block_index;
+                *file_size = entry.file_size;
+                return 0;
+            }
+        }
     }
+
     return -1;
 }
 
-void tfsWriteDirectory(TFS *tfs) {
-    tfsWriteBlockData(tfs, &directory_block[sizeof(TFSBlockHeader)], directory_index);
+int tfsUpdateEntry(TFS *tfs, FileHandle *directory, int block_index, unsigned int mode, unsigned int file_size) {
+    int i;
+    TFSFileEntry entry;
+    int num_entries = directory->current_size / sizeof(TFSFileEntry);
+
+    for (i = 0; i < num_entries; i++) {
+        if (tfsReadFile(tfs, directory, (char*)&entry, sizeof(TFSFileEntry), i * sizeof(TFSFileEntry)) != sizeof(TFSFileEntry)) {
+            return -1;
+        }
+        if (entry.block_index == block_index) {
+            entry.mode = mode;
+            entry.file_size = file_size;
+            if (!tfsWriteFile(tfs, directory, (char*)&entry, sizeof(TFSFileEntry), i * sizeof(TFSFileEntry)) != sizeof(TFSFileEntry)) {
+                return -1;
+            }
+            return 0;
+        }
+    }
+
+    return -1;
 }
 
+// TODO: Reimplement & write unit tests
 int tfsDeleteDirectory(TFS *tfs, const char *path, const char *dir_name) {
+    /*
     TFSFileEntry *entry;
     unsigned int directory_index;
     int i, start;
@@ -324,59 +420,56 @@ int tfsDeleteDirectory(TFS *tfs, const char *path, const char *dir_name) {
             return 0;
         }
     }
+    */
     return -1;
 }
 
-FileHandle *tfsCreateFile(TFS *tfs, char *path, unsigned int mode, char *file_name) {
+FileHandle *tfsCreateFile(TFS *tfs, const char *path, unsigned int mode, const char *file_name) {
     int block_index;
-    int directory_index;
+    FileHandle *dir = NULL, *file;
 
-    // Find the directory
-    directory_index = tfsOpenPath(tfs, path);
-    if (directory_index < 0) {
-        return NULL;
+    if (path) {
+        // Find the directory
+        if ((dir = tfsOpenPath(tfs, path)) == NULL) {
+            return NULL;
+        }
     }
 
-    // 3 is the first free block on a filesystem with just one directory (root)
-    block_index = tfsAllocateBlock(tfs, 3, tfs->header.current_node_id, 0, 0);
+    // 2 is the first free block on the filesystem
+    block_index = tfsAllocateBlock(tfs, 2, tfs->header.current_node_id, 0, 0);
     if (block_index == 0) {
+        tfsCloseHandle(dir);
         return NULL;
     }
 
     tfs->header.current_node_id++;
     if (tfsWriteFilesystemHeader(tfs) != 0) {
+        tfsCloseHandle(dir);
         return NULL;
     }
 
-    while (tfsReadNextEntry()) { }
-    if (tfsWriteNextEntry(mode, block_index, file_name) != 0) {
+    if (dir && tfsAppendDirectoryEntry(tfs, dir, mode, block_index, 0, file_name) != 0) {
+        tfsCloseHandle(dir);
         return NULL;
     }
-    tfsWriteDirectory(tfs);
 
-    return get_file_handle(block_index, directory_index, mode, 0);
+    file = get_file_handle(block_index, dir, mode, 0);
+    tfsCloseHandle(dir);
+    return file;
 }
 
 FileHandle *tfsOpenFile(TFS *tfs, char *path, char *file_name) {
+    int mode, block_index, file_size;
     TFSFileEntry *entry;
-    unsigned int directory_index;
+    FileHandle *dir;
 
-    directory_index = tfsOpenPath(tfs, path);
-    if (directory_index < 0) {
+    if ((dir = tfsOpenPath(tfs, path)) == NULL) {
         return NULL;
     }
-    while (entry = tfsReadNextEntry()) {
-        int i;
-        for (i = 0; file_name[i]; i++) {
-            if (file_name[i] != entry->file_name[i]) {
-                break;
-            }
-        }
-        if (!file_name[i] && !entry->file_name[i]) {
-            return get_file_handle(entry->block_index, directory_index, entry->mode, entry->file_size);
-        }
+    if (tfsFindEntry(tfs, dir, file_name, &mode, &block_index, &file_size) != 0) {
+        return NULL;
     }
-    return NULL;
+    return get_file_handle(block_index, dir, mode, file_size);
 }
 
 int tfsWriteFile(TFS *tfs, FileHandle *handle, const char *buf, unsigned int size, unsigned int offset) {
@@ -472,13 +565,16 @@ int tfsWriteFile(TFS *tfs, FileHandle *handle, const char *buf, unsigned int siz
         handle->current_size = offset + size;
 
         // Update directory
-        if (tfsOpenDirectory(tfs, handle->directory_index) == 0) {
-            tfsUpdateEntry(handle->block_index, handle->mode, handle->current_size);
-            tfsWriteDirectory(tfs);
+        if (handle->directory) {
+            tfsUpdateEntry(tfs, handle->directory, handle->block_index, handle->mode, handle->current_size);
+        } else {
+            // This should only happen for the root directory!
+            tfs->header.root_dir_size = handle->current_size;
+            tfsWriteFilesystemHeader(tfs);
         }
     }
 
-    return 0;
+    return size;
 }
 
 int tfsReadFile(TFS *tfs, FileHandle *handle, char *buf, unsigned int size, unsigned int offset) {
@@ -545,7 +641,9 @@ int tfsReadFile(TFS *tfs, FileHandle *handle, char *buf, unsigned int size, unsi
     return size;
 }
 
+// TODO: Reimplement & write unit tests
 int tfsDeleteFile(TFS *tfs, char *path, char *file_name) {
+    /*
     TFSFileEntry *entry;
     unsigned int directory_index;
 
@@ -570,6 +668,7 @@ int tfsDeleteFile(TFS *tfs, char *path, char *file_name) {
             return 0;
         }
     }
+    */
     return -1;
 }
 
@@ -822,5 +921,31 @@ int tfsDeallocateBlocks(TFS *tfs, int block_index) {
     return 0;
 
     return 0;
+}
+
+void tfsCloseHandle(FileHandle *handle) {
+    if (!handle) return;
+
+    handle->ref_count--;
+    if (handle->ref_count == 0) {
+        if (handle->directory) {
+            // Recursively release the parent directory handle
+            tfsCloseHandle(handle->directory);
+        }
+        handle->block_index = 0;
+        handle->directory = NULL;
+        handle->mode = 0;
+        handle->current_size = 0;
+    }
+}
+
+int tfsGetOpenHandleCount() {
+    int i, count = 0;
+    for (i = 0; i < MAX_FILE_HANDLES; i++) {
+        if (gFileHandles[i].block_index != 0) {
+            count += gFileHandles[i].ref_count;
+        }
+    }
+    return count;
 }
 

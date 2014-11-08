@@ -4,11 +4,11 @@
 #include "tomfs.h"
 
 #define RUNTEST(x) { printf("Running " #x "...\n"); if (x() != 0) { printf("Test failed!\n"); return -1; } }
-#define ASSERT(x) if (!(x)) { printf("Assert failed: " #x "\n"); return -1; }
-#define ASSERT_EQUALS(x, y) { int z = (x); if (z != y) { printf("Assert failed: Expected " #x " = %d to equal " #y "\n", z); return -1; } }
-#define ASSERT_NOTEQUALS(x, y) { int z = (x); if (z == y) { printf("Assert failed: Expected " #x " = %d to NOT equal " #y "\n", z); return -1; } }
-#define ASSERT_NOERROR(x) { int z = (x); if (z < 0) { printf("Assert failed: Expected " #x " = %d to be >= 0\n", z); return -1; } }
-#define ASSERT_ERROR(x) { int z = (x); if (z >= 0) { printf("Assert failed: Expected " #x " = %d to be < 0\n", z); return -1; } }
+#define ASSERT(x) if (!(x)) { printf("Assert failed: " #x " on line %d\n", __LINE__); return -1; }
+#define ASSERT_EQUALS(x, y) { int z = (x); if (z != y) { printf("Assert failed: Expected " #x " = %d to equal " #y " on line %d\n", z, __LINE__); return -1; } }
+#define ASSERT_NOTEQUALS(x, y) { int z = (x); if (z == y) { printf("Assert failed: Expected " #x " = %d to NOT equal " #y " on line %d\n", z, __LINE__); return -1; } }
+#define ASSERT_NOERROR(x) { int z = (x); if (z < 0) { printf("Assert failed: Expected " #x " = %d to be >= 0 on line %d\n", z, __LINE__); return -1; } }
+#define ASSERT_ERROR(x) { int z = (x); if (z >= 0) { printf("Assert failed: Expected " #x " = %d to be < 0 on line %d\n", z, __LINE__); return -1; } }
 
 typedef struct {
     char *base_addr;
@@ -114,7 +114,7 @@ int test_init_writes_blocks() {
     tfsInit(&tfs);
 
     ASSERT_EQUALS(tfsInitFilesystem(&tfs, 2560), 0);
-    ASSERT_EQUALS(counter, 2566);
+    ASSERT_EQUALS(counter, 2567);
 
     return 0;
 }
@@ -222,7 +222,6 @@ int test_allocate_blocks() {
     int i;
     TestMemPtr mem_ptr;
     TFS tfs;
-    TFSFilesystemHeader *header;
 
     mem_ptr.base_addr = malloc(2560 * TFS_BLOCK_SIZE);
     mem_ptr.num_blocks = 2560;
@@ -257,7 +256,6 @@ int test_write_files() {
     int i;
     TestMemPtr mem_ptr;
     TFS tfs;
-    TFSFilesystemHeader *header;
     FileHandle *handle;
     char buf[TFS_BLOCK_DATA_SIZE*5];
 
@@ -317,7 +315,6 @@ int test_read_files() {
     int i, num;
     TestMemPtr mem_ptr;
     TFS tfs;
-    TFSFilesystemHeader *header;
     FileHandle *handle;
     char buf[TFS_BLOCK_DATA_SIZE*5];
 
@@ -360,6 +357,145 @@ int test_read_files() {
     return 0;
 }
 
+int test_directories() {
+    TestMemPtr mem_ptr;
+    TFS tfs;
+    FileHandle *dir, *file;
+    int idx = 0;
+    int count;
+    int mode;
+    int block_idx;
+    int size;
+    char filename[256];
+
+    mem_ptr.base_addr = malloc(2560 * TFS_BLOCK_SIZE);
+    mem_ptr.num_blocks = 2560;
+    mem_ptr.overrun = 0;
+    
+    tfs.read_fn = &mem_read_fn;
+    tfs.write_fn = &mem_write_fn;
+    tfs.user_data = &mem_ptr;
+    tfsInit(&tfs);
+    
+    // Create a filesystem
+    ASSERT_EQUALS(tfsInitFilesystem(&tfs, 2560), 0);
+    ASSERT_EQUALS(mem_ptr.overrun, 0);
+
+    ASSERT_EQUALS(tfsGetOpenHandleCount(), 0);
+
+    // List files in the root directory
+    ASSERT_NOTEQUALS(dir = tfsOpenPath(&tfs, "/"), NULL);
+    count = 0;
+    while (tfsReadNextEntry(&tfs, dir, &idx, &mode, &block_idx, &size, filename, 256) == 0) {
+        ASSERT(strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0);
+        count++;
+    }
+    ASSERT_EQUALS(count, 2);
+
+    // Can also look up files by name
+    ASSERT_EQUALS(tfsFindEntry(&tfs, dir, ".", &mode, &block_idx, &size), 0);
+    ASSERT_EQUALS(tfsFindEntry(&tfs, dir, "..", &mode, &block_idx, &size), 0);
+
+    tfsCloseHandle(dir);
+    ASSERT_EQUALS(tfsGetOpenHandleCount(), 0);
+    
+    // Create a file in the root directory
+    ASSERT_NOTEQUALS((file = tfsCreateFile(&tfs, "/", 0644, "root_1")), 0);
+
+    ASSERT_NOTEQUALS(dir = tfsOpenPath(&tfs, "/"), NULL);
+    idx = 0;
+    count = 0;
+    while (tfsReadNextEntry(&tfs, dir, &idx, &mode, &block_idx, &size, filename, 256) == 0) {
+        ASSERT(strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0 || strcmp(filename, "root_1") == 0);
+        count++;
+    }
+    ASSERT_EQUALS(count, 3);
+
+    tfsCloseHandle(dir);
+    tfsCloseHandle(file);
+    ASSERT_EQUALS(tfsGetOpenHandleCount(), 0);
+
+    // Create a new subdirectory
+    ASSERT_NOTEQUALS(dir = tfsCreateDirectory(&tfs, "/", "testdir"), NULL);
+    idx = 0;
+    count = 0;
+    while (tfsReadNextEntry(&tfs, dir, &idx, &mode, &block_idx, &size, filename, 256) == 0) {
+        ASSERT(strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0);
+        count++;
+    }
+    ASSERT_EQUALS(count, 2);
+
+    tfsCloseHandle(dir);
+    ASSERT_EQUALS(tfsGetOpenHandleCount(), 0);
+
+    ASSERT_NOTEQUALS(dir = tfsOpenPath(&tfs, "/"), NULL);
+    idx = 0;
+    count = 0;
+    while (tfsReadNextEntry(&tfs, dir, &idx, &mode, &block_idx, &size, filename, 256) == 0) {
+        ASSERT(strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0 || strcmp(filename, "root_1") == 0 || strcmp(filename, "testdir") == 0);
+        count++;
+    }
+    ASSERT_EQUALS(count, 4);
+
+    // Can also look up subdirectories by name
+    ASSERT_EQUALS(tfsFindEntry(&tfs, dir, "testdir", &mode, &block_idx, &size), 0);
+
+    tfsCloseHandle(dir);
+    ASSERT_EQUALS(tfsGetOpenHandleCount(), 0);
+
+    // Create some files in the subdirectory
+    ASSERT_NOTEQUALS(file = tfsCreateFile(&tfs, "/testdir", 0644, "child_1"), 0);
+    tfsCloseHandle(file);
+    ASSERT_NOTEQUALS(file = tfsCreateFile(&tfs, "/testdir", 0644, "child_2"), 0);
+    tfsCloseHandle(file);
+
+    ASSERT_NOTEQUALS(dir = tfsOpenPath(&tfs, "/testdir"), NULL);
+    idx = 0;
+    count = 0;
+    while (tfsReadNextEntry(&tfs, dir, &idx, &mode, &block_idx, &size, filename, 256) == 0) {
+        ASSERT(strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0 || strcmp(filename, "child_1") == 0 || strcmp(filename, "child_2") == 0);
+        count++;
+    }
+    ASSERT_EQUALS(count, 4);
+
+    tfsCloseHandle(dir);
+    ASSERT_EQUALS(tfsGetOpenHandleCount(), 0);
+
+    // One more layer of nesting, because reasons
+    ASSERT_NOTEQUALS(dir = tfsCreateDirectory(&tfs, "/testdir", "onemore"), NULL);
+
+    idx = 0;
+    count = 0;
+    while (tfsReadNextEntry(&tfs, dir, &idx, &mode, &block_idx, &size, filename, 256) == 0) {
+        ASSERT(strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0);
+        count++;
+    }
+    ASSERT_EQUALS(count, 2);
+
+    tfsCloseHandle(dir);
+    ASSERT_EQUALS(tfsGetOpenHandleCount(), 0);
+
+    // Create some files in the subdirectory
+    ASSERT_NOTEQUALS(file = tfsCreateFile(&tfs, "/testdir/onemore", 0644, "grand_child_1"), 0);
+    tfsCloseHandle(file);
+    ASSERT_NOTEQUALS(file = tfsCreateFile(&tfs, "/testdir/onemore", 0644, "child_with_a_name_longer_than_ten_characters_because_why_not"), 0);
+    tfsCloseHandle(file);
+
+    ASSERT_NOTEQUALS(dir = tfsOpenPath(&tfs, "/testdir/onemore"), NULL);
+    idx = 0;
+    count = 0;
+    while (tfsReadNextEntry(&tfs, dir, &idx, &mode, &block_idx, &size, filename, 256) == 0) {
+        ASSERT(strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0 || strcmp(filename, "grand_child_1") == 0 || strcmp(filename, "child_with_a_name_longer_than_ten_characters_because_why_not") == 0);
+        count++;
+    }
+    ASSERT_EQUALS(count, 4);
+
+    tfsCloseHandle(dir);
+    ASSERT_EQUALS(tfsGetOpenHandleCount(), 0);
+    
+    return 0;
+}
+
 int main() {
     // Low-level tests
     RUNTEST(test_set_bitmap);
@@ -370,6 +506,7 @@ int main() {
     RUNTEST(test_init_writes_blocks);
     RUNTEST(test_init_works);
     RUNTEST(test_allocate_blocks);
+    RUNTEST(test_directories);
     RUNTEST(test_write_files);
     RUNTEST(test_read_files);
     printf("All tests pass. Yay!\n");

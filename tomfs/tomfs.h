@@ -41,6 +41,9 @@ typedef struct {
 
     // The offset into the primes table for our stride
     unsigned short stride_offset;
+
+    // The size of the root directory data
+    unsigned int root_dir_size;
 } TFSFilesystemHeader;
 
 typedef struct {
@@ -77,12 +80,12 @@ typedef struct TFS {
     TFSFilesystemHeader header;
 } TFS;
 
-#define TFS_DELETED_FILE 0xFFFFFFFF
+#define TFS_FILENAME_ENTRY 0xFFFFFFFF
 
 typedef struct TFSFileEntry {
     // The mode of the file or directory
-    // 0 signifies the end of the file entry list. TFS_DELETED_FILE is
-    // an empty entry that can be skipped.
+    // If this is zero, then the entry is free. If this is TFS_FILENAME_ENTRY,
+    // then the entry is in fact a TFSFilenameEntry and not a TFSFileEntry.
     unsigned int mode;
 
     // The index of the first block for this file
@@ -91,14 +94,24 @@ typedef struct TFSFileEntry {
     // The size of the file in bytes
     unsigned int file_size;
 
-    // The size of the filename in bytes (filename is not zero-terminated)
-    unsigned short name_size;
+    // A hash of the name, for efficient lookups
+    unsigned short name_hash;
 
-    char unused; // For padding
-
-    // The filename
-    char file_name[1];
+    // Entry number for the first TFSFilenameEntry block of this entry's filename
+    unsigned short filename_entry;
 } TFSFileEntry;
+
+typedef struct TFSFilenameEntry {
+    // For a TFSFilenameEntry this will always be TFS_FILENAME_ENTRY.
+    unsigned int mode;
+
+    // The entry number for the next TFSFilenameEntry. This is ignored if
+    // there is a null terminator in 'filename'.
+    unsigned short next_entry;
+
+    // The next 10 characters in the filename.
+    char filename[10];
+} TFSFilenameEntry;
 
 typedef struct FileHandle FileHandle;
 
@@ -115,28 +128,23 @@ int tfsOpenFilesystem(TFS *tfs);
 
 // Directory API
 
-// Returns a block number for the new directory, or 0 on failure
-int tfsCreateDirectory(TFS *tfs);
-
-// Opens a directory for reading by block (0 on success)
-int tfsOpenDirectory(TFS *tfs, int block_index);
+// Returns a file handle for the new directory, or NULL on failure
+FileHandle *tfsCreateDirectory(TFS *tfs, const char *path, const char *dir_name);
 
 // Opens a directory for reading by path (0 on success)
-int tfsOpenPath(TFS *tfs, const char *path);
+FileHandle *tfsOpenPath(TFS *tfs, const char *path);
 
-// Returns the next file entry, or NULL for EOF
-TFSFileEntry *tfsReadNextEntry();
+// Reads values into the parameters for the next entry in the given directory.
+// Assumes that all the parameters are zeroed out.
+// Returns 0 on success.
+int tfsReadNextEntry(TFS *tfs, FileHandle *directory, unsigned int *entry_index, unsigned int *mode, unsigned int *block_index, unsigned int *file_size, char *filename, int filename_size);
 
-// Writes an entry at the end of the currently open directory
-// NOTE: Don't forget to call tfsWriteDirectory() after adding all the new
-// entries!
-int tfsWriteNextEntry(unsigned int mode, int block_index, const char *name);
+// Finds an entry by name and returns the mode, block index and size.
+// Returns 0 on success.
+int tfsFindEntry(TFS *tfs, FileHandle *directory, char *filename, unsigned int *mode, unsigned int *block_index, unsigned int *file_size);
 
 // Update an existing entry (returns 0 on success)
-int tfsUpdateEntry(int block_index, unsigned int mode, unsigned int size);
-
-// Write out any new directory entries in the currently open directory
-void tfsWriteDirectory(TFS *tfs);
+int tfsUpdateEntry(TFS *tfs, FileHandle *directory, int block_index, unsigned int mode, unsigned int file_size);
 
 // Removes a directory from the parent directory & filesystem
 // Directory must be empty
@@ -146,7 +154,7 @@ int tfsDeleteDirectory(TFS *tfs, const char *path, const char *dir_name);
 
 // Creates a new file in the directory specified by 'path' with the given filename.
 // Returns a file handle for the new file, or NULL on failure
-FileHandle *tfsCreateFile(TFS *tfs, char *path, unsigned int mode, char *file_name);
+FileHandle *tfsCreateFile(TFS *tfs, const char *path, unsigned int mode, const char *file_name);
 
 // Opens a file by path and filename
 // Returns a file handle for the file, or NULL on failure
@@ -161,6 +169,12 @@ int tfsReadFile(TFS *tfs, FileHandle *handle, char *buf, unsigned int size, unsi
 
 // Removes the file from the directory & filesystem
 int tfsDeleteFile(TFS *tfs, char *path, char *file_name);
+
+// Closes a handle to a file or directory
+void tfsCloseHandle(FileHandle *handle);
+
+// Returns the number of currently in-use handles
+int tfsGetOpenHandleCount();
 
 // Internals
 void tfsSetBitmapBit(char *bitmap_buf, int block_index);

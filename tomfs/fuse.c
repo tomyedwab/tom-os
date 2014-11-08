@@ -69,28 +69,30 @@ void split_path(const char *path, char *dir_path, char *file_name) {
 static int tomfs_getattr(const char *path, struct stat *stbuf) {
     char dir_path[1024];
     char file_name[256];
+    char entry_file_name[256];
     TFSFileEntry *entry;
+    FileHandle *dir;
+    int idx, mode, block_idx, size;
     memset(stbuf, 0, sizeof(struct stat));
     if (strcmp(path, "/") == 0) {
         stbuf->st_mode = S_IFDIR | 0755;
         stbuf->st_nlink = 1;
         return 0;
     }
-
     split_path(path, dir_path, file_name);
 
-    if (tfsOpenPath(gTFS, dir_path) < 0) {
+    if ((dir = tfsOpenPath(gTFS, dir_path)) == NULL) {
         return -ENOENT;
     }
-    while (entry = tfsReadNextEntry()) {
-        if (strcmp(file_name, entry->file_name) == 0) {
-            stbuf->st_mode = entry->mode;
-            stbuf->st_nlink = 1;
-            stbuf->st_size = entry->file_size;
-            return 0;
-        }
+    if (tfsFindEntry(gTFS, dir, file_name, &mode, &block_idx, &size) == 0) {
+        stbuf->st_mode = mode;
+        stbuf->st_nlink = 1;
+        stbuf->st_size = size;
+        tfsCloseHandle(dir);
+        return 0;
     }
 
+    tfsCloseHandle(dir);
     return -ENOENT;
 }
 
@@ -98,15 +100,17 @@ static int tomfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                            off_t offset, struct fuse_file_info *fi)
 {
     TFSFileEntry *entry;
-    (void) offset;
-    (void) fi;
+    char entry_file_name[256];
+    FileHandle *dir;
+    int idx, mode, block_idx, size;
 
-    if (tfsOpenPath(gTFS, path) < 0) {
+    if ((dir = tfsOpenPath(gTFS, path)) == NULL) {
         return -ENOENT;
     }
 
-    while (entry = tfsReadNextEntry()) {
-        filler(buf, entry->file_name, NULL, 0);
+    idx = 0;
+    while (tfsReadNextEntry(gTFS, dir, &idx, &mode, &block_idx, &size, entry_file_name, 256) == 0) {
+        filler(buf, entry_file_name, NULL, 0);
     }
 
     return 0;
@@ -140,24 +144,17 @@ static int tomfs_read(const char *path, char *buf, size_t size, off_t offset, st
 
 static int tomfs_mkdir(const char *path, mode_t mode) {
     char dir_path[1024];
-    char file_name[256];
-    int directory_index = tfsCreateDirectory(gTFS);
-    if (directory_index == 0) {
+    char dir_name[256];
+    FileHandle *dir;
+
+    split_path(path, dir_path, dir_name);
+
+    dir = tfsCreateDirectory(gTFS, dir_path, dir_name);
+    if (dir == NULL) {
         return -ENOMEM;
     }
 
-    split_path(path, dir_path, file_name);
-
-    if (tfsOpenPath(gTFS, dir_path) < 0) {
-        return -ENOENT;
-    }
-
-    while (tfsReadNextEntry()) { }
-
-    if (tfsWriteNextEntry(mode | 0040000, directory_index, file_name) != 0) {
-        return -ENOMEM;
-    }
-    tfsWriteDirectory(gTFS);
+    tfsCloseHandle(dir);
     return 0;
 }
 
@@ -166,20 +163,24 @@ static int tomfs_create(const char *path, mode_t mode, struct fuse_file_info *in
     char file_name[256];
     split_path(path, dir_path, file_name);
 
+    printf("tomfs_create %s / %s\n", dir_path, file_name);
     info->fh = tfsCreateFile(gTFS, dir_path, mode, file_name);
     if (info->fh == NULL) {
+        printf("tfsCreateFile failed.\n");
         return -ENOMEM;
     }
 
+    printf("tfsCreateFile succeeded.\n");
     return 0;
 }
 
 static int tomfs_write(const char *path, const char *buf, size_t size, off_t off, struct fuse_file_info *info) {
     FileHandle *handle = info->fh;
-    if (tfsWriteFile(gTFS, handle, buf, size, off) != 0) {
+    int count;
+    if ((count = tfsWriteFile(gTFS, handle, buf, size, off)) < 0) {
         return -ENOENT;
     }
-    return 0;
+    return count;
 }
 
 static int tomfs_flush(const char *path, struct fuse_file_info *info) {

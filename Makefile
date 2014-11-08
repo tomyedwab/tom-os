@@ -53,11 +53,10 @@ output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/sample.elf
 	mkdir -p mnt
 	rm -f output/filesystem.img
 	output/tomfs_make_fs output/filesystem.img
-	# output/tomfs_fuse -o output/filesystem.img mnt
-	# TODO: Actually build the image
-	# mkdir -p mnt/sample
-	# cp output/sample.elf mnt/sample/
-	# fusermount -u mnt
+	output/tomfs_fuse -o file=output/filesystem.img mnt
+	mkdir -p mnt/sample
+	cp output/sample.elf mnt/sample/sample.elf
+	fusermount -u mnt
 
 # Complete image
 image: output/bootsector.bin output/bootstrap-kernel.bin output/libstd-tom.a output/sample.elf
