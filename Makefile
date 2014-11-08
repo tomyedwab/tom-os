@@ -49,14 +49,16 @@ output/tomfs_fuse: tomfs/tomfs.c tomfs/fuse.c
 	gcc -D_FILE_OFFSET_BITS=64 -o $@ $+ -lfuse
 
 # Filesystem
-output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/sample.elf
+output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/sample.elf output/bootstrap-kernel.bin
 	mkdir -p mnt
-	rm -f output/filesystem.img
-	output/tomfs_make_fs output/filesystem.img
-	output/tomfs_fuse -o file=output/filesystem.img mnt
+	rm -f output/filesystem.img.tmp
+	output/tomfs_make_fs output/filesystem.img.tmp
+	output/tomfs_fuse -o file=output/filesystem.img.tmp mnt
+	cp output/bootstrap-kernel.bin mnt/kernel
 	mkdir -p mnt/sample
 	cp output/sample.elf mnt/sample/sample.elf
-	fusermount -u mnt
+	fusermount -z -u mnt
+	cp output/filesystem.img.tmp output/filesystem.img
 
 # Complete image
 image: output/bootsector.bin output/bootstrap-kernel.bin output/libstd-tom.a output/sample.elf
