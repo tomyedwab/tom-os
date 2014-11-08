@@ -192,3 +192,8 @@ void handleIRQ(unsigned int id) {
     printByte(id);
     printStr("\n");
 }
+
+void sleep(unsigned int count) {
+    int target = tk_system_counter + count;
+    while (tk_system_counter < target) { }
+}

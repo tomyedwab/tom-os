@@ -1,8 +1,4 @@
-#include <stdio.h> // TODO: donotcheckin
-
 #include "tomfs.h"
-
-#define MAX_FILE_HANDLES 1024
 
 typedef struct FileHandle {
     unsigned int block_index;
@@ -12,7 +8,16 @@ typedef struct FileHandle {
     unsigned int ref_count;
 } FileHandle;
 
+#ifndef EXTERNAL_FILE_HANDLES
+#define MAX_FILE_HANDLES 1024
+
 FileHandle gFileHandles[MAX_FILE_HANDLES];
+#else
+FileHandle *gFileHandles;
+int MAX_FILE_HANDLES;
+#endif
+
+int kprintf(const char *fmt, ...);
 
 // 60 prime numbers
 static int gPrimeNumberTable[] = {
@@ -47,8 +52,12 @@ static FileHandle *get_file_handle(unsigned int block_index, FileHandle *directo
     return NULL;
 }
 
-void tfsInit(TFS *tfs) {
+void tfsInit(TFS *tfs, FileHandle *handles, int max_handles) {
     int i;
+#ifdef EXTERNAL_FILE_HANDLES
+    gFileHandles = handles;
+    MAX_FILE_HANDLES = max_handles;
+#endif
     for (i = 0; i < MAX_FILE_HANDLES; i++) {
         gFileHandles[i].block_index = 0;
     }

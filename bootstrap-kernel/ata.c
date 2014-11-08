@@ -2,11 +2,6 @@
 
 #define BASE_ADDRESS 0x1F0
 
-void sleep(unsigned int count) {
-    int target = tk_system_counter + count;
-    while (tk_system_counter < target) { }
-}
-
 int waitForATABusy() {
     unsigned char b;
     do {
@@ -20,7 +15,6 @@ int waitForATABusy() {
     } while ((b & 0x80) != 0);
     return b;
 }
-
 
 int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer) {
     int slavebit = 0;

@@ -3,6 +3,8 @@
 
 #include "tomfs.h"
 
+int kprintf(const char *fmt, ...) {}
+
 int read_fn(struct TFS *fs, char *buf, unsigned int block) {
     fseek((FILE *)fs->user_data, block*TFS_BLOCK_SIZE, SEEK_SET);
     fread(buf, 1, TFS_BLOCK_SIZE, (FILE *)fs->user_data);
@@ -29,7 +31,7 @@ int main(int argc, const char *argv[]) {
         return -1;
     }
 
-    tfsInit(&tfs);
+    tfsInit(&tfs, NULL, 0);
 
     tfs.read_fn = &read_fn;
     tfs.write_fn = &write_fn;

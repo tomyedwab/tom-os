@@ -10,6 +10,10 @@
 // Block 16386 - Data block
 // ...
 
+#ifndef NULL
+#define NULL 0
+#endif
+
 // Block size is the same as memory page size
 #define TFS_BLOCK_SIZE        4096
 
@@ -115,10 +119,15 @@ typedef struct TFSFilenameEntry {
 
 typedef struct FileHandle FileHandle;
 
+// This is the size of the FileHandle stucture, so that the caller can
+// allocate their own file handle array. Must be kept in sync with FileHandle,
+// unfortunately
+#define TFS_FILE_HANDLE_SIZE 20
+
 // Public API
 
 // Must be called before doing any other operations
-void tfsInit(TFS *tfs);
+void tfsInit(TFS *tfs, FileHandle *handles, int max_handles);
 
 // Returns 0 on successful initialization of a new filesystem
 int tfsInitFilesystem(TFS *tfs, int num_blocks);

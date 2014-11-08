@@ -12,6 +12,8 @@
 
 TFS *gTFS;
 
+int kprintf(const char *fmt, ...) {}
+
 int tomfs_read_cb(struct TFS *fs, char *buf, unsigned int block) {
     fseek((FILE*)fs->user_data, block * TFS_BLOCK_SIZE, SEEK_SET);
     if (fread(buf, TFS_BLOCK_SIZE, 1, (FILE*)fs->user_data) != 1) {
@@ -264,7 +266,7 @@ int main(int argc, char *argv[])
          printf("Could not open file %s!\n", conf.file);
      }
 
-     tfsInit(gTFS);
+     tfsInit(gTFS, NULL, 0);
 
      return fuse_main(args.argc, args.argv, &tomfs_oper, NULL);
 }

@@ -102,6 +102,7 @@ int kprintf(const char *fmt, ...);
 
 // Interrupts
 void initInterrupts();
+void sleep(unsigned int count);
 
 // Keyboard
 void keyboardInit();
@@ -109,6 +110,10 @@ void keyboardProcessCode(unsigned char code);
 
 // ATA driver
 int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer);
+
+// Filesystem
+extern struct TFS gTFS;
+void initFilesystem();
 
 // Memcpy
 void memcpy(void *dest, void *src, int bytes);

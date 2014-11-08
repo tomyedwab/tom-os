@@ -17,8 +17,6 @@
  *
  */
 
-char printf_tmp_buf[256];
-
 int isdigit(const char c)
 {
     return c >= '0' && c <= '9';
@@ -315,6 +313,7 @@ int sprintf(char *buf, const char *fmt, ...)
 
 int kprintf(const char *fmt, ...)
 {
+    char printf_tmp_buf[256];
     va_list args;
     int printed;
 

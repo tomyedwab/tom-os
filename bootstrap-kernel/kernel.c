@@ -28,11 +28,13 @@ void main() {
     streamInit();
     printStr("[OK] Streams\n");
 
-    buffer = (unsigned char *)heapAllocContiguous(3);
-    if (loadFromDisk(34, 20, buffer) == 1) {
+    initFilesystem();
+    printStr("[OK] Filesystem\n");
+
+    {
         unsigned int ret;
         printStr("Loaded app from disk.\n");
-        ret = loadELF(buffer);
+        ret = loadELF("/sample", "sample.elf");
         printStr("App ended: "); printInt(ret); printStr("\n");
     }
 

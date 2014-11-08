@@ -1,16 +1,22 @@
-KERNEL_FILES=gdt.c ports.c screen.c kprintf.c heap.c pic.c interrupt.c keyboard.c ata.c vmm.c process.c elf.c syscall.c memcpy.c stream.c kernel.c
+KERNEL_FILES=gdt.c ports.c screen.c kprintf.c heap.c pic.c interrupt.c keyboard.c ata.c filesystem.c vmm.c process.c elf.c syscall.c memcpy.c stream.c kernel.c
 KERNEL_OBJECTS=$(patsubst %.c, build/bootstrap-kernel/%.o, $(KERNEL_FILES))
 
 all: vm
 
 build/%.o: %.c
 	mkdir -p `dirname $@`
-	gcc -m32 -I. -I./include -ffreestanding -c $< -o $@
+	gcc -Os -m32 -I. -I./include -ffreestanding -c $< -o $@
 
-# Bootloader
-output/bootsector.bin: bootsector/boot.asm
+# Bootloader stage 1
+output/bootloader-stage1.bin: bootloader/stage1.asm
 	mkdir -p output
-	nasm bootsector/boot.asm -f bin -o output/bootsector.bin
+	nasm bootloader/stage1.asm -f bin -o $@
+
+# Bootloader stage 2
+output/bootloader-stage2.bin: bootloader/stage2-entry.asm build/bootstrap-kernel/screen.o build/bootstrap-kernel/kprintf.o build/bootstrap-kernel/ports.o build/bootstrap-kernel/ata.o build/tomfs/tomfs.o build/bootloader/stage2.o
+	mkdir -p output
+	nasm bootloader/stage2-entry.asm -f elf -o build/bootloader/stage2-entry.o
+	ld -o $@ -m elf_i386 -Ttext 0x8000 --oformat binary build/bootloader/stage2-entry.o build/bootstrap-kernel/screen.o build/bootstrap-kernel/kprintf.o build/bootstrap-kernel/ports.o build/bootstrap-kernel/ata.o build/tomfs/tomfs.o build/bootloader/stage2.o
 
 # Stream library
 output/libstream.a: build/streamlib/write.o build/streamlib/read.o
@@ -18,10 +24,10 @@ output/libstream.a: build/streamlib/write.o build/streamlib/read.o
 	ar rcs $@ build/streamlib/write.o build/streamlib/read.o
 
 # Bootstrap kernel
-output/bootstrap-kernel.bin: $(KERNEL_OBJECTS) bootstrap-kernel/kernel-entry.asm output/libstream.a
+output/bootstrap-kernel.bin: $(KERNEL_OBJECTS) bootstrap-kernel/kernel-entry.asm output/libstream.a build/tomfs/tomfs.o
 	mkdir -p output
 	nasm bootstrap-kernel/kernel-entry.asm -f elf -o build/bootstrap-kernel/kernel-entry.o
-	ld -o $@ -m elf_i386 -Ttext 0x8000 --oformat binary build/bootstrap-kernel/kernel-entry.o $(KERNEL_OBJECTS) output/libstream.a
+	ld -o $@ -m elf_i386 -Ttext 0x10000 --oformat binary build/bootstrap-kernel/kernel-entry.o $(KERNEL_OBJECTS) output/libstream.a build/tomfs/tomfs.o
 
 # Standard library
 output/libstd-tom.a: build/stdlib/init.o build/stdlib/printf.o build/stdlib/memcpy.o
@@ -42,11 +48,11 @@ output/tomfs_test: tomfs/tomfs.c tomfs/tomfs_test.c
 
 # TomFS make_fs utility
 output/tomfs_make_fs: tomfs/tomfs.c tomfs/make_fs.c
-	gcc -o $@ $+
+	gcc -I./include -o $@ $+
 
 # TomFS FUSE driver
 output/tomfs_fuse: tomfs/tomfs.c tomfs/fuse.c
-	gcc -D_FILE_OFFSET_BITS=64 -o $@ $+ -lfuse
+	gcc -I./include -D_FILE_OFFSET_BITS=64 -o $@ $+ -lfuse
 
 # Filesystem
 output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/sample.elf output/bootstrap-kernel.bin
@@ -58,20 +64,20 @@ output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/sample.elf 
 	mkdir -p mnt/sample
 	cp output/sample.elf mnt/sample/sample.elf
 	fusermount -z -u mnt
-	cp output/filesystem.img.tmp output/filesystem.img
+	mv output/filesystem.img.tmp output/filesystem.img
 
 # Complete image
-image: output/bootsector.bin output/bootstrap-kernel.bin output/libstd-tom.a output/sample.elf
-	cat output/bootsector.bin output/bootstrap-kernel.bin > output/image.bin
+image: output/bootloader-stage1.bin output/bootloader-stage2.bin output/filesystem.img output/libstd-tom.a output/sample.elf
+	cat output/bootloader-stage1.bin output/bootloader-stage2.bin > output/image.bin
 	# Pad to 17408 bytes (34 sectors)
 	truncate -s 17408 output/image.bin
-	cat output/sample.elf >> output/image.bin
-	# Pad another 10240 bytes (20 sectors) for kernel
-	truncate -s 27648 output/image.bin
+	cat output/filesystem.img >> output/image.bin
+	# Pad to 10813440 bytes (66 cylinders x 10 heads x 32 sectors)
+	truncate -s 10813440 output/image.bin
 
 # Disassembly
 disasm: output/bootstrap-kernel.bin output/sample.elf
-	ndisasm -b 32 -o 0x8000 output/bootstrap-kernel.bin > output/bootstrap-kernel.bin.as
+	ndisasm -b 32 -o 0x10000 output/bootstrap-kernel.bin > output/bootstrap-kernel.bin.as
 	ndisasm -b 32 -e 128 -o 0x08048080 output/sample.elf > output/sample.elf.as
 
 vm: image disasm

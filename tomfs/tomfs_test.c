@@ -97,7 +97,7 @@ int test_init_handles_errors() {
     TFS tfs;
     
     tfs.write_fn = &error_fn;
-    tfsInit(&tfs);
+    tfsInit(&tfs, NULL, 0);
 
     ASSERT_EQUALS(tfsInitFilesystem(&tfs, 2560), -1);
 
@@ -111,7 +111,7 @@ int test_init_writes_blocks() {
     tfs.read_fn = &dummy_count_fn;
     tfs.write_fn = &dummy_count_fn;
     tfs.user_data = &counter;
-    tfsInit(&tfs);
+    tfsInit(&tfs, NULL, 0);
 
     ASSERT_EQUALS(tfsInitFilesystem(&tfs, 2560), 0);
     ASSERT_EQUALS(counter, 2567);
@@ -131,7 +131,7 @@ int test_init_works() {
     tfs.read_fn = &mem_read_fn;
     tfs.write_fn = &mem_write_fn;
     tfs.user_data = &mem_ptr;
-    tfsInit(&tfs);
+    tfsInit(&tfs, NULL, 0);
     
     // There is no valid filesystem yet
     ASSERT_EQUALS(tfsOpenFilesystem(&tfs), -1);
@@ -163,7 +163,7 @@ int test_open_handles_errors() {
     TFS tfs;
     
     tfs.read_fn = &error_fn;
-    tfsInit(&tfs);
+    tfsInit(&tfs, NULL, 0);
     ASSERT_EQUALS(tfsOpenFilesystem(&tfs), -1);
 
     return 0;
@@ -230,7 +230,7 @@ int test_allocate_blocks() {
     tfs.read_fn = &mem_read_fn;
     tfs.write_fn = &mem_write_fn;
     tfs.user_data = &mem_ptr;
-    tfsInit(&tfs);
+    tfsInit(&tfs, NULL, 0);
     
     // There is no valid filesystem yet
     ASSERT_EQUALS(tfsOpenFilesystem(&tfs), -1);
@@ -266,7 +266,7 @@ int test_write_files() {
     tfs.read_fn = &mem_read_fn;
     tfs.write_fn = &mem_write_fn;
     tfs.user_data = &mem_ptr;
-    tfsInit(&tfs);
+    tfsInit(&tfs, NULL, 0);
     
     // There is no valid filesystem yet
     ASSERT_EQUALS(tfsOpenFilesystem(&tfs), -1);
@@ -325,7 +325,7 @@ int test_read_files() {
     tfs.read_fn = &mem_read_fn;
     tfs.write_fn = &mem_write_fn;
     tfs.user_data = &mem_ptr;
-    tfsInit(&tfs);
+    tfsInit(&tfs, NULL, 0);
     
     // There is no valid filesystem yet
     ASSERT_EQUALS(tfsOpenFilesystem(&tfs), -1);
@@ -375,7 +375,7 @@ int test_directories() {
     tfs.read_fn = &mem_read_fn;
     tfs.write_fn = &mem_write_fn;
     tfs.user_data = &mem_ptr;
-    tfsInit(&tfs);
+    tfsInit(&tfs, NULL, 0);
     
     // Create a filesystem
     ASSERT_EQUALS(tfsInitFilesystem(&tfs, 2560), 0);

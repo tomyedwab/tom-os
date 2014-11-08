@@ -1,18 +1,20 @@
 Physical memory map:
 
 Disk layout:
-0x00000 - 0x001ff Boot sector (boot.asm)
-0x00200 - 0x003ff 2nd stage bootloader (boot.asm)
+0x00000 - 0x001ff Bootloader, stage 1a (stage1.asm)
+0x00200 - 0x003ff Bootloader, stage 1b (stage1.asm)
+0x00400 - 0x004ff Bootloader, stage 2 (
 0x00400 - 0x04200 Kernel (kernel.c)
 
 At boot time:
-0x00000 - 0x00200 Boot sector (boot.asm)
-0x00200 - 0x07e00 Bootloader stack (boot.asm)
-0x07e00 - 0x08000 2nd stage bootloader (boot.asm)
+0x000000 - 0x000200 Boot sector (stage1.asm)
+0x000200 - 0x007c00 Bootloader stack (stage1.asm)
+0x007e00 - 0x00be00 2nd stage bootloader (stage2.c)
+0x08a000 - 0x090000 2nd stage bootloader stack (boot.asm)
 
 At run time:
-0x000000 - 0x008000 Minidriver routines (?; up to 32kb)
-0x008000 - 0x088000 Kernel (kernel.c; up to 512kb)
+0x000000 - 0x010000 Minidriver routines (?; up to 32kb)
+0x010000 - 0x088000 Kernel (kernel.c; up to 480kb)
 0x088000 - 0x088fff Interrupt table
 0x089000 - 0x089fff GDT
 0x08a000 - 0x090000 Kernel stack (boot.asm)

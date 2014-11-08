@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include "tomfs.h"
 
 #define LOADER_VADDR_BASE 0x2000000
 
@@ -49,12 +50,40 @@ typedef struct {
     unsigned short shstrndx;
 } ELFHeader;
 
-unsigned int loadELF(const char *buffer) {
+unsigned int loadELF(const char *path, const char *file_name) {
     int i, j, ret;
-    ELFHeader *header = (ELFHeader *)buffer;
+    ELFHeader *header;
     ELFSection *stringTable;
     const char *strings;
     TKVProcID proc_id;
+    FileHandle *dir, *file;
+    char *buffer;
+    int mode, block_idx, size;
+
+    if ((dir = tfsOpenPath(&gTFS, path)) == NULL) {
+        kprintf("Could not find path %s!", path);
+        return -1;
+    }
+    if (tfsFindEntry(&gTFS, dir, file_name, &mode, &block_idx, &size) != 0) {
+        kprintf("Could not find file %s!", file_name);
+        tfsCloseHandle(dir);
+        return -1;
+    }
+    buffer = heapAllocContiguous((size + 4095) / 4096);
+    header = (ELFHeader *)buffer;
+    tfsCloseHandle(dir);
+
+    if ((file = tfsOpenFile(&gTFS, path, file_name)) == NULL) {
+        kprintf("Could not open file %s!", file_name);
+        return -1;
+    }
+
+    if (tfsReadFile(&gTFS, file, buffer, size, 0) < size) {
+        kprintf("Could not read file %s!", file_name);
+        return -1;
+    }
+
+    tfsCloseHandle(file);
     
     if (header->magic[0] != 0x7F || header->magic[1] != 'E' ||
         header->magic[2] != 'L' || header->magic[3] != 'F') {
