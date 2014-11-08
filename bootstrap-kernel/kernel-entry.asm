@@ -46,9 +46,6 @@
 [global irq_handler_14]
 [global irq_handler_15]
 
-call main
-jmp $
-
 user_process_jump:
     push ebp
     mov ebp, esp

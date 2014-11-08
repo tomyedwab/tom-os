@@ -129,10 +129,8 @@ unsigned int loadELF(const char *path, const char *file_name) {
                 kernel_addr = (section->addr & 0xfff) + LOADER_VADDR_BASE + (j<<12);
             }
         }
-        /*
         kprintf("Section %d: %s\n", i, &strings[section->name]);
         kprintf("  addr %X  kernel %X offset %X size %X\n", section->addr, kernel_addr, section->offset, section->size);
-        */
 
         if (kernel_addr == 0) {
             kprintf("PROC ERROR: Cannot find page for address: %X\n", section->addr);

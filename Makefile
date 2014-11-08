@@ -5,7 +5,7 @@ all: vm
 
 build/%.o: %.c
 	mkdir -p `dirname $@`
-	gcc -Os -m32 -I. -I./include -ffreestanding -c $< -o $@
+	gcc -g -Os -m32 -I. -I./include -ffreestanding -c $< -o $@
 
 # Bootloader stage 1
 output/bootloader-stage1.bin: bootloader/stage1.asm
@@ -27,6 +27,7 @@ output/libstream.a: build/streamlib/write.o build/streamlib/read.o
 output/bootstrap-kernel.bin: $(KERNEL_OBJECTS) bootstrap-kernel/kernel-entry.asm output/libstream.a build/tomfs/tomfs.o
 	mkdir -p output
 	nasm bootstrap-kernel/kernel-entry.asm -f elf -o build/bootstrap-kernel/kernel-entry.o
+	ld -o output/bootstrap-kernel.elf -m elf_i386 -Ttext 0x10000 build/bootstrap-kernel/kernel-entry.o $(KERNEL_OBJECTS) output/libstream.a build/tomfs/tomfs.o
 	ld -o $@ -m elf_i386 -Ttext 0x10000 --oformat binary build/bootstrap-kernel/kernel-entry.o $(KERNEL_OBJECTS) output/libstream.a build/tomfs/tomfs.o
 
 # Standard library
@@ -39,7 +40,7 @@ build/stdlib/loader.o: stdlib/loader.asm
 
 # Sample application
 output/sample.elf: build/sample/main.o output/libstd-tom.a output/libstream.a build/stdlib/loader.o
-	ld -o $@ -m elf_i386 build/stdlib/loader.o build/sample/main.o output/libstd-tom.a output/libstream.a
+	ld --entry=__init -o $@ -m elf_i386 build/stdlib/loader.o build/sample/main.o output/libstd-tom.a output/libstream.a
 
 # TomFS test suite
 output/tomfs_test: tomfs/tomfs.c tomfs/tomfs_test.c
@@ -82,7 +83,9 @@ image: output/bootloader-stage1.bin output/bootloader-stage2.bin output/filesyst
 # Disassembly
 disasm: output/bootstrap-kernel.bin output/sample.elf
 	ndisasm -b 32 -o 0x10000 output/bootstrap-kernel.bin > output/bootstrap-kernel.bin.as
-	ndisasm -b 32 -e 128 -o 0x08048080 output/sample.elf > output/sample.elf.as
+	ndisasm -b 32 -e 160 -o 0x080480A0 output/sample.elf > output/sample.elf.as
+	readelf -s output/bootstrap-kernel.elf > output/bootstrap-kernel.syms
+	readelf -s output/sample.elf > output/sample.syms
 
 vm: image disasm
 	rm -f boot.vhd

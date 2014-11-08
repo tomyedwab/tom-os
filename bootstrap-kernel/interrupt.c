@@ -172,9 +172,6 @@ void handleIRQ(unsigned int id) {
     if (id == 0) {
         // System clock!
         tk_system_counter++;
-        /*if (tk_system_counter % 1024 == 0) {
-            printStr("Clock!\n");
-        }*/
         return;
 
     } else if (id == 1) {
@@ -194,6 +191,10 @@ void handleIRQ(unsigned int id) {
 }
 
 void sleep(unsigned int count) {
-    int target = tk_system_counter + count;
-    while (tk_system_counter < target) { }
+    long target = tk_system_counter + count;
+    long t, i;
+    while ((target - t) > 0) {
+        t = tk_system_counter;
+        i++;
+    }
 }

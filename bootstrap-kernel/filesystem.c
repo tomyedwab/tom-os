@@ -15,7 +15,7 @@ int read_fn(struct TFS *fs, char *buf, unsigned int block) {
     for (i = 0; i < block_cache_size; i++) {
         if (block_cache[i].block == block) {
             char *buffer = block_cache[i].buffer;
-            kprintf("Found cached block %d\n", block);
+            //kprintf("Found cached block %d\n", block);
             for (i = 0; i < 4096; i++) {
                 buf[i] = buffer[i];
             }
@@ -23,7 +23,7 @@ int read_fn(struct TFS *fs, char *buf, unsigned int block) {
         }
     }
     // 8 sectors per block in our filesystem
-    kprintf("Reading block %d\n", block);
+    //kprintf("Reading block %d\n", block);
     if (loadFromDisk(34 + (block << 3), 8, buf) == 1) {
         char *buffer = allocPage();
         for (i = 0; i < 4096; i++) {
@@ -32,7 +32,7 @@ int read_fn(struct TFS *fs, char *buf, unsigned int block) {
         block_cache[block_cache_size].block = block;
         block_cache[block_cache_size].buffer = buffer;
         block_cache_size++;
-        kprintf("Read block %d\n", block);
+        //kprintf("Read block %d\n", block);
         return 0;
     }
     kprintf("Failed to read block %d.\n", block);

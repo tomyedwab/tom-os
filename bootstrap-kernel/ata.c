@@ -4,7 +4,6 @@
 
 int waitForATABusy() {
     unsigned char b;
-    printStr("WAIT FOR BUSY...\n");
     do {
         sleep(100);
         b = inb(BASE_ADDRESS + 7);
@@ -14,7 +13,6 @@ int waitForATABusy() {
             return 0;
         }
     } while ((b & 0x80) != 0);
-    printStr("DONE\n");
     return b;
 }
 
@@ -24,7 +22,7 @@ int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer) {
     unsigned char status;
 
     // Select drive
-    printStr("Reading from ATA...\n");
+    //printStr("Reading from ATA...\n");
     waitForATABusy();
     outb(BASE_ADDRESS + 6, (0xE0 | (slavebit <<  4) | (LBA >> 24 & 0x0F))); 
     outb(BASE_ADDRESS + 2, (unsigned char)sectorCount);
@@ -33,10 +31,10 @@ int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer) {
     outb(BASE_ADDRESS + 5, (LBA >> 16) & 0xff);
     //issue a read sectors command
     outb(BASE_ADDRESS + 7, 0x20);
-    printStr("Requested...\n");
+    //printStr("Requested...\n");
     status = waitForATABusy();
     if (status == 0) { return 0; }
-    printStr("Got data!\n");
+    //printStr("Got data!\n");
     for (index = 0; index < 256 * sectorCount; ) {
         ((unsigned short *)buffer)[index] = inw(BASE_ADDRESS);
         index++;
