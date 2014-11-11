@@ -621,9 +621,12 @@ int tfsReadFile(TFS *tfs, FileHandle *handle, char *buf, unsigned int size, unsi
     } while (1);
 
     bytes_to_read = size;
+    if (offset + bytes_to_read > handle->current_size) {
+        bytes_to_read = handle->current_size - offset;
+    }
     buf_offset = 0;
     while (1) {
-        int block_bytes = (bytes_to_read > TFS_BLOCK_DATA_SIZE - block_offset) ? TFS_BLOCK_DATA_SIZE - block_offset : bytes_to_read;
+        int block_bytes = (bytes_to_read > (TFS_BLOCK_DATA_SIZE - block_offset)) ? (TFS_BLOCK_DATA_SIZE - block_offset) : bytes_to_read;
 
         for (i = 0; i < block_bytes; i++) {
             buf[i + buf_offset] = block_buf[i + block_offset + sizeof(TFSBlockHeader)];

@@ -1,11 +1,6 @@
 [bits 32]
-[extern __init]
-[extern main]
 [global puts]
 [global flush_streams]
-call __init
-call main
-jmp $
 
 puts:
     push ebp

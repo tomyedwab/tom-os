@@ -31,9 +31,9 @@ void printChar(const char c) {
     if (c == '\n' || x > (COLS-1)) {
         x = 0;
         y++;
-        if (y == ROWS) {
+        if (y >= ROWS) {
             scrollScreen();
-            y--;
+            y = ROWS - 1;
         }
         if (c == '\n') {
             return;

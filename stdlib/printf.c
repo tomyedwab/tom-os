@@ -328,7 +328,7 @@ int printf_old(const char *fmt, ...)
 }
 
 
-int printf(const char *fmt, ...)
+int fprintf(TKStreamPointer *out, const char *fmt, ...)
 {
     va_list args;
     int printed;
@@ -338,7 +338,7 @@ int printf(const char *fmt, ...)
     printed = vsprintf(printf_tmp_buf, fmt, args);
     va_end(args);
 
-    msg = (TKMsgPrintString*)streamCreateMsg(&stdout_ptr, ID_PRINT_STRING, sizeof(TKMsgHeader) + printed + 1);
+    msg = (TKMsgPrintString*)streamCreateMsg(out, ID_PRINT_STRING, sizeof(TKMsgHeader) + printed + 1);
     if (!msg) {
         return 0;
     }
