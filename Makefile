@@ -31,9 +31,9 @@ output/bootstrap-kernel.bin: $(KERNEL_OBJECTS) bootstrap-kernel/kernel-entry.asm
 	ld --entry=main -o $@ -m elf_i386 -Ttext 0x10000 --oformat binary build/bootstrap-kernel/kernel-entry.o $(KERNEL_OBJECTS) build/streamlib/streams.o build/tomfs/tomfs.o
 
 # Standard library
-output/libstd-tom.a: build/stdlib/init.o build/stdlib/printf.o build/stdlib/memcpy.o
+output/libstd-tom.a: build/stdlib/init.o build/stdlib/printf.o build/stdlib/random.o build/stdlib/memcpy.o
 	mkdir -p output
-	ar rcs $@ build/stdlib/init.o build/stdlib/printf.o build/stdlib/memcpy.o
+	ar rcs $@ build/stdlib/init.o build/stdlib/printf.o build/stdlib/random.o build/stdlib/memcpy.o
 
 build/stdlib/loader.o: stdlib/loader.asm
 	nasm stdlib/loader.asm -f elf -o build/stdlib/loader.o

@@ -1,6 +1,7 @@
 #include "kernel.h"
 
 char is_shift_pressed;
+char state_arrow_key;
 
 void keyboardInit() {
     is_shift_pressed = 0;
@@ -10,6 +11,28 @@ void keyboardProcessCode(unsigned char code) {
     char type = 0;
     char action = 0;
     char ascii = 0;
+    char dir = 0;
+
+    if (state_arrow_key) {
+        switch (code & 0x7f) {
+        case 0x48: dir = TKB_ARROW_UP; break;
+        case 0x50: dir = TKB_ARROW_DOWN; break;
+        case 0x4b: dir = TKB_ARROW_LEFT; break;
+        case 0x4d: dir = TKB_ARROW_RIGHT; break;
+        }
+        if (dir != 0) {
+            type = TKB_KEY_TYPE_ARROW;
+            if (code >= 0x80) {
+                action = TKB_KEY_ACTION_UP;
+            } else {
+                action = TKB_KEY_ACTION_DOWN;
+            }
+        }
+    } else if (code == 0xe0) {
+        state_arrow_key = 1;
+        return;
+    }
+    state_arrow_key = 0;
 
     if (code == 0x36 || code == 0x2a) {
         is_shift_pressed = 1;
@@ -142,12 +165,15 @@ void keyboardProcessCode(unsigned char code) {
             msg->type = type;
             msg->action = action;
             msg->ascii = ascii;
+            msg->dir = dir;
         }
         procSyncAllStreams(tk_cur_proc_id);
     } else {
         // TODO: Handle other character codes
+        /*
         printStr("Key: ");
         printByte(code);
         printStr("\n");
+        */
     }
 }

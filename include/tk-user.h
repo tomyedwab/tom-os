@@ -7,16 +7,27 @@
 // Keyboard constants
 #define TKB_KEY_TYPE_ASCII    0x01
 #define TKB_KEY_TYPE_SHIFT    0x01
+#define TKB_KEY_TYPE_ARROW    0x02
 
 #define TKB_KEY_ACTION_DOWN   0x01
 #define TKB_KEY_ACTION_UP     0x02
+
+#define TKB_ARROW_UP          0x01
+#define TKB_ARROW_DOWN        0x02
+#define TKB_ARROW_LEFT        0x03
+#define TKB_ARROW_RIGHT       0x04
+
+// Screen constants
+#define TK_SCREEN_ROWS 25
+#define TK_SCREEN_COLS 80
 
 // Stream data structures
 
 // TODO: Namespace these
 #define ID_INIT_STREAM    0x01
-#define ID_PRINT_STRING   0x02
-#define ID_KEY_CODE       0x03
+#define ID_PRINT_STRING   0x10
+#define ID_PRINT_CHAR_AT  0x11
+#define ID_KEY_CODE       0x20
 
 typedef struct {
     TKMsgHeader header; // ID_INIT_STREAM
@@ -29,10 +40,19 @@ typedef struct {
 } TKMsgPrintString;
 
 typedef struct {
+    TKMsgHeader header; // ID_PRINT_CHAR_AT
+    char x;
+    char y;
+    char c;
+    char color;
+} TKMsgPrintCharAt;
+
+typedef struct {
     TKMsgHeader header; // ID_KEY_CODE
     char type;
     char action;
-    char ascii;
+    char ascii; // for TKB_KEY_TYPE_ASCII
+    char dir; // for TKB_KEY_TYPE_ARROW
 } TKMsgKeyCode;
 
 // Make va_list work

@@ -111,6 +111,7 @@ TKVProcID procInitUser() {
     }
 
     // Allocate a page for the stack
+    // TODO: Need to be able to extend the stack automatically when a page fault happens
     info->stack_vaddr = (void*)0x0a000fff;
     stack_page = (unsigned int)allocPage();
     vmmMapPage(info->vmm_directory, ((unsigned int)info->stack_vaddr) & 0xfffff000, stack_page, 1);

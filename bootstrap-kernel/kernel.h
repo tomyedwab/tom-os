@@ -92,6 +92,7 @@ void *heapAllocContiguous(int num_pages);
 // Screen
 void initScreen();
 void clearScreen();
+void printCharAt(int x, int y, const char c, char color);
 void printChar(const char c);
 void printStr(const char *str);
 void printByte(unsigned char byte);
@@ -103,6 +104,7 @@ int kprintf(const char *fmt, ...);
 
 // Interrupts
 void initInterrupts();
+long getSystemCounter();
 void sleep(unsigned int count);
 
 // Keyboard

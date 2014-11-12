@@ -42,9 +42,6 @@ int strnlen(const char *s, int max_len)
     return count;
 }
 
-void puts();
-void flush_streams();
-
 #define ZEROPAD 1               /* pad with zero */
 #define SIGN    2               /* unsigned/signed long */
 #define PLUS    4               /* show plus */
@@ -328,7 +325,24 @@ int fprintf(TKStreamPointer *out, const char *fmt, ...)
     }
 
     memcpy(&msg->str, printf_tmp_buf, printed + 1);
-    flush_streams();
+    flushStreams();
 
     return printed;
+}
+
+void printCharAt(TKStreamPointer *out, int x, int y, char c, char fg, char bg) {
+    TKMsgPrintCharAt *msg;
+    msg = (TKMsgPrintString*)streamCreateMsg(out, ID_PRINT_CHAR_AT, sizeof(TKMsgPrintCharAt));
+    if (!msg) {
+        flushStreams();
+        msg = (TKMsgPrintString*)streamCreateMsg(out, ID_PRINT_CHAR_AT, sizeof(TKMsgPrintCharAt));
+    }
+    if (!msg) {
+        return;
+    }
+
+    msg->x = (char)x;
+    msg->y = (char)y;
+    msg->c = c;
+    msg->color = (bg << 4) | fg;
 }

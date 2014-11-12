@@ -27,6 +27,14 @@ void scrollScreen() {
     }
 }
 
+void printCharAt(int x, int y, const char c, char color) {
+    if (x >= 0 && y >= 0 && x < COLS && y < ROWS) {
+        int pos = x * 2 + y * COLS * 2;
+        *(video_memory + pos) = c;
+        *(video_memory + pos + 1) = color;
+    }
+}
+
 void printChar(const char c) {
     if (c == '\n' || x > (COLS-1)) {
         x = 0;

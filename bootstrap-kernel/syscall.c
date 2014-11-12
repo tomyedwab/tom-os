@@ -9,15 +9,37 @@ void syscallHandler(unsigned int func, unsigned int param1) {
         return;
     }
     if (func == 0x2) {
+        TKMsgHeader *msg;
         // flush_streams
         // For now, just check stdout
         procSyncAllStreams(tk_cur_proc_id);
-        TKMsgHeader *msg = (TKMsgHeader*)streamReadMsg(procGetStdoutPointer(tk_cur_proc_id));
-        if (msg) {
-            if (msg->identifier == ID_PRINT_STRING) {
-                TKMsgPrintString *pmsg = (TKMsgPrintString*)msg;
-                printStr(pmsg->str);
-            }
+        while (msg = (TKMsgHeader*)streamReadMsg(procGetStdoutPointer(tk_cur_proc_id))) {
+            switch (msg->identifier) {
+            case ID_PRINT_STRING:
+                {
+                    TKMsgPrintString *pmsg = (TKMsgPrintString*)msg;
+                    printStr(pmsg->str);
+                    break;
+                }
+
+            case ID_PRINT_CHAR_AT:
+                {            
+                    TKMsgPrintCharAt *pmsg = (TKMsgPrintCharAt*)msg;
+                    printCharAt(pmsg->x, pmsg->y, pmsg->c, pmsg->color);
+                    break;
+                }
+            };
+        }
+    }
+    if (func == 0x3) {
+        // Sleep
+        // TODO: pass in a count as a parameter
+        long count = 400;
+        long target = getSystemCounter() + count;
+        long t, i;
+        while ((target - t) > 0) {
+            t = getSystemCounter();
+            i++;
         }
     }
 }

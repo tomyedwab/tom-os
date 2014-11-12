@@ -190,11 +190,15 @@ void handleIRQ(unsigned int id) {
     printStr("\n");
 }
 
+long __attribute__ ((noinline)) getSystemCounter() {
+    return tk_system_counter;
+}
+
 void sleep(unsigned int count) {
-    long target = tk_system_counter + count;
+    long target = getSystemCounter() + count;
     long t, i;
     while ((target - t) > 0) {
-        t = tk_system_counter;
+        t = getSystemCounter();
         i++;
     }
 }
