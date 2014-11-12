@@ -116,7 +116,6 @@ TKVProcID procInitUser() {
     vmmMapPage(info->vmm_directory, ((unsigned int)info->stack_vaddr) & 0xfffff000, stack_page, 1);
 
     // Allocate a page for kernel/user shared memory
-    // TODO: Remove this and use stdin/stdout instead
     info->shared_page_addr = (void *)allocPage();
     vmmMapPage(info->vmm_directory, USER_SHARED_PAGE_VADDR, (unsigned int)info->shared_page_addr, 1);
 

@@ -316,6 +316,8 @@ irq_handler:
     mov ebp, esp
 
     push eax
+    push ecx
+    push edx
     mov eax, cr3
     push eax
     mov eax, 0x200000
@@ -331,6 +333,8 @@ irq_handler:
 
     pop eax
     mov cr3, eax ; Restore user VMM
+    pop edx
+    pop ecx
     pop eax
     pop ebx
     pop ebp
