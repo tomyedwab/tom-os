@@ -10,7 +10,17 @@ void streamInit() {
     tk_num_streams = 0;
 }
 
-TKStreamID streamCreate(unsigned int size) {
+/**
+ * Create a new stream between processes:
+ *   1) Create a ring buffer to hold the data
+ *   2) Map the buffer to read_vaddr and write_vaddr in the respective process
+ *      memory spaces
+ *   3) Initialize the stream pointers residing in shared memory
+ */
+TKStreamID streamCreate(
+        unsigned int size,
+        TKVProcID read_owner, unsigned int read_vaddr, TKStreamPointer *read_ptr,
+        TKVProcID write_owner, unsigned int write_vaddr, TKStreamPointer *write_ptr) {
     TKStreamInfo *info;
     // Round up to the nearest 4k bytes
     int num_pages = (size + 0xfff) >> 12;
@@ -19,49 +29,34 @@ TKStreamID streamCreate(unsigned int size) {
     info = &tk_stream_table[tk_num_streams++];
 
     info->stream_id = tk_num_streams;
-    info->read_owner = 0;
-    info->write_owner = 0;
+    info->read_owner = read_owner;
+    info->write_owner = write_owner;
     info->size = size;
     info->num_pages = num_pages;
     info->buffer_ptr = heapAllocContiguous(num_pages);
 
     // Fill with empty identifier
     for (i = 0; i < size / 4; i++) {
-        ((unsigned int *)info->buffer_ptr)[i] = ID_EMPTY;
+        ((unsigned int *)info->buffer_ptr)[i] = TKS_ID_EMPTY;
     }
+
+    // Map the pages into the user memory spaces
+    for (i = 0; i < info->num_pages; i++) {
+        procMapPage(read_owner, read_vaddr + (i << 12), (unsigned int)info->buffer_ptr + (i << 12));
+        procMapPage(write_owner, write_vaddr + (i << 12), (unsigned int)info->buffer_ptr + (i << 12));
+    }
+    // Map the first page again after the last page, so writes off the end can
+    // magically just wrap around
+    procMapPage(read_owner, read_vaddr + (i << 12), (unsigned int)info->buffer_ptr);
+    procMapPage(write_owner, write_vaddr + (i << 12), (unsigned int)info->buffer_ptr);
+
+    // Initialize the stream pointers
+    streamInitStreams(read_ptr, write_ptr, read_vaddr, write_vaddr, size);
 
     kprintf("Created stream %d at %X, size %X, %d pages\n", info->stream_id, info->buffer_ptr, info->size, info->num_pages);
+    kprintf(" -> Mapped reader %d to address %X\n", read_owner, read_vaddr);
+    kprintf(" -> Mapped writer %d to address %X\n", write_owner, write_vaddr);
 
     return info->stream_id;
-}
-
-void streamMapReader(TKStreamID id, TKVProcID owner, unsigned int v_addr) {
-    // TODO: Verify id is valid
-    int i;
-    TKStreamInfo *info = &tk_stream_table[id-1];
-    info->read_owner = owner;
-    info->read_vaddr = (void*)v_addr;
-    for (i = 0; i < info->num_pages; i++) {
-        procMapPage(owner, v_addr + (i << 12), (unsigned int)info->buffer_ptr + (i << 12));
-    }
-}
-
-void streamMapWriter(TKStreamID id, TKVProcID owner, unsigned int v_addr) {
-    // TODO: Verify id is valid
-    int i;
-    TKStreamInfo *info = &tk_stream_table[id-1];
-    info->write_owner = owner;
-    info->write_vaddr = (void*)v_addr;
-    for (i = 0; i < info->num_pages; i++) {
-        procMapPage(owner, v_addr + (i << 12), (unsigned int)info->buffer_ptr + (i << 12));
-    }
-}
-
-void streamCreatePointer(TKStreamID id, TKStreamPointer *pointer) {
-    // TODO: Verify id is valid
-    TKStreamInfo *info = &tk_stream_table[id-1];
-    pointer->buffer_ptr = info->buffer_ptr;
-    pointer->buffer_size = info->size;
-    pointer->cur_ptr = info->buffer_ptr;
 }
 

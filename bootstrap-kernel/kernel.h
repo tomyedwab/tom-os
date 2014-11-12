@@ -26,21 +26,21 @@ typedef struct {
     TKVPageDirectory vmm_directory;
     void *stack_vaddr;
     void *shared_page_addr;
-    TKStreamID stdin;
-    TKStreamPointer stdin_ptr;
-    TKStreamID stdout;
-    TKStreamPointer stdout_ptr;
+    // Kernel has to keep pointers to stdin/stdout so it can read from/write to them
+    TKStreamPointer kernel_stdin;  // stdin write pointer
+    TKStreamPointer kernel_stdout; // stdout read pointer
+    // Kernel tracks all stream pointers for the process which are mapped into shared pages
+    TKStreamPointer *user_stdin;   // stdin read pointer in kernel memory space
+    TKStreamPointer *user_stdout;  // stdout write pointer in kernel memory space
 } TKProcessInfo;
 
 typedef struct {
-    TKStreamID stream_id;    // ID used to reference the stream
-    TKVProcID read_owner;    // Process that will be reading from the stream
-    TKVProcID write_owner;   // Process that will be writing to the stream
-    unsigned int size;       // Actual size (in bytes) of the buffer
-    unsigned int num_pages;  // Number of pages allocated
-    void *buffer_ptr;        // Real address of the stream buffer
-    void *read_vaddr;        // Address of the stream in the reader's address space
-    void *write_vaddr;       // Address of the stream in the writer's address space
+    TKStreamID stream_id;        // ID used to reference the stream
+    TKVProcID read_owner;        // Process that will be reading from the stream
+    TKVProcID write_owner;       // Process that will be writing to the stream
+    unsigned int size;           // Actual size (in bytes) of the buffer
+    unsigned int num_pages;      // Number of pages allocated
+    void *buffer_ptr;            // Real address of the stream buffer
 } TKStreamInfo;
 
 // kernel-entry.asm
@@ -78,6 +78,7 @@ void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest);
 unsigned int procActivateAndJump(TKVProcID proc_id, void *ip);
 void *procGetSharedPage(TKVProcID proc_id);
 TKStreamPointer *procGetStdoutPointer(TKVProcID proc_id);
+void procSyncAllStreams(TKVProcID proc_id);
 void halt();
 void printStack();
 
@@ -120,9 +121,10 @@ void memcpy(void *dest, void *src, int bytes);
 
 // Stream
 void streamInit();
-TKStreamID streamCreate(unsigned int size);
-void streamMapReader(TKStreamID id, TKVProcID owner, unsigned int v_addr);
-void streamMapWriter(TKStreamID id, TKVProcID owner, unsigned int v_addr);
+TKStreamID streamCreate(
+    unsigned int size,
+    TKVProcID read_owner, unsigned int read_vaddr, TKStreamPointer *read_ptr,
+    TKVProcID write_owner, unsigned int write_vaddr, TKStreamPointer *write_ptr);
 
 // Globals
 extern TKVProcID tk_cur_proc_id;

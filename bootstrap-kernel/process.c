@@ -1,5 +1,4 @@
 #include "kernel.h"
-#include "streamlib.h"
 
 TKProcessInfo *tk_process_table;
 TKVProcID tk_cur_proc_id = 1;
@@ -124,23 +123,24 @@ TKVProcID procInitUser() {
     // Allocate exactly one page each for stdin/stdout
     // TODO: Handle multiple streams per process
     // TODO: This won't work once there's more than one process
-    info->stdin = streamCreate(4096);
-    info->stdout = streamCreate(4096);
-    streamMapReader(info->stdin, info->proc_id, USER_STREAM_START_VADDR);
-    streamMapWriter(info->stdin, 1, KERNEL_STREAM_START_VADDR);
-    streamMapReader(info->stdout, 1, KERNEL_STREAM_START_VADDR + 0x1000);
-    streamMapWriter(info->stdout, info->proc_id, USER_STREAM_START_VADDR + 0x1000);
+    info->user_stdin = (TKStreamPointer*)info->shared_page_addr;
+    streamCreate(
+        4096,
+        info->proc_id, USER_STREAM_START_VADDR, info->user_stdin,
+        1, KERNEL_STREAM_START_VADDR, &info->kernel_stdin);
+    info->user_stdout = (TKStreamPointer*)((char*)info->shared_page_addr + sizeof(TKStreamPointer));
+    streamCreate(
+        4096,
+        1, KERNEL_STREAM_START_VADDR + 0x2000, &info->kernel_stdout,
+        info->proc_id, USER_STREAM_START_VADDR + 0x2000, info->user_stdout);
 
-    streamCreatePointer(info->stdin, &info->stdin_ptr);
     {
         // Send stdout stream via stdin
         TKMsgInitStream *msg = (TKMsgInitStream*)streamCreateMsg(
-                &info->stdin_ptr, ID_INIT_STREAM, sizeof(TKMsgInitStream));
-        msg->pointer.buffer_ptr = (void*)(KERNEL_STREAM_START_VADDR + 0x1000);
-        msg->pointer.cur_ptr = (TKMsgHeader*)msg->pointer.buffer_ptr;
-        msg->pointer.buffer_size = 4096;
+                &info->kernel_stdin, ID_INIT_STREAM, sizeof(TKMsgInitStream));
+        msg->pointer = (TKStreamPointer*)(USER_SHARED_PAGE_VADDR + sizeof(TKStreamPointer));
+        streamSyncStreams(info->user_stdin, &info->kernel_stdin);
     }
-    streamCreatePointer(info->stdout, &info->stdout_ptr);
 
     kprintf("Created process %d vmm: %X stack %X -> %X\n", info->proc_id, info->vmm_directory, info->stack_vaddr, stack_page);
     kprintf("Shared page: %X\n", info->shared_page_addr);
@@ -172,13 +172,20 @@ void *procGetSharedPage(TKVProcID proc_id) {
 TKStreamPointer *procGetStdoutPointer(TKVProcID proc_id) {
     // TODO: Verify process is valid
     TKProcessInfo *info = &tk_process_table[proc_id-1];
-    return &info->stdout_ptr;
+    return &info->kernel_stdout;
 }
 
 TKStreamPointer *procGetStdinPointer(TKVProcID proc_id) {
     // TODO: Verify process is valid
     TKProcessInfo *info = &tk_process_table[proc_id-1];
-    return &info->stdin_ptr;
+    return &info->kernel_stdin;
+}
+
+void procSyncAllStreams(TKVProcID proc_id) {
+    // TODO: Verify process is valid
+    TKProcessInfo *info = &tk_process_table[proc_id-1];
+    streamSyncStreams(info->user_stdin, &info->kernel_stdin);
+    streamSyncStreams(&info->kernel_stdout, info->user_stdout);
 }
 
 void halt() {

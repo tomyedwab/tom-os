@@ -143,6 +143,7 @@ void keyboardProcessCode(unsigned char code) {
             msg->action = action;
             msg->ascii = ascii;
         }
+        procSyncAllStreams(tk_cur_proc_id);
     } else {
         // TODO: Handle other character codes
         printStr("Key: ");

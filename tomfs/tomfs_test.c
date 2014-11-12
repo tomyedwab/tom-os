@@ -114,7 +114,7 @@ int test_init_writes_blocks() {
     tfsInit(&tfs, NULL, 0);
 
     ASSERT_EQUALS(tfsInitFilesystem(&tfs, 2560), 0);
-    ASSERT_EQUALS(counter, 2567);
+    ASSERT_EQUALS(counter, 2576);
 
     return 0;
 }

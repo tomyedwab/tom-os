@@ -18,17 +18,17 @@ output/bootloader-stage2.bin: bootloader/stage2-entry.asm build/bootstrap-kernel
 	nasm bootloader/stage2-entry.asm -f elf -o build/bootloader/stage2-entry.o
 	ld -o $@ -m elf_i386 -Ttext 0x8000 --oformat binary build/bootloader/stage2-entry.o build/bootstrap-kernel/screen.o build/bootstrap-kernel/ports.o build/bootstrap-kernel/ata.o build/tomfs/tomfs.o build/bootloader/stage2.o
 
-# Stream library
-output/libstream.a: build/streamlib/write.o build/streamlib/read.o
+# Stream library test suite
+output/streamlib_test: streamlib/streams.c streamlib/test.c
 	mkdir -p output
-	ar rcs $@ build/streamlib/write.o build/streamlib/read.o
+	gcc -I./include -o $@ $+
 
 # Bootstrap kernel
-output/bootstrap-kernel.bin: $(KERNEL_OBJECTS) bootstrap-kernel/kernel-entry.asm output/libstream.a build/tomfs/tomfs.o
+output/bootstrap-kernel.bin: $(KERNEL_OBJECTS) bootstrap-kernel/kernel-entry.asm build/streamlib/streams.o build/tomfs/tomfs.o
 	mkdir -p output
 	nasm bootstrap-kernel/kernel-entry.asm -f elf -o build/bootstrap-kernel/kernel-entry.o
-	ld -o output/bootstrap-kernel.elf -m elf_i386 -Ttext 0x10000 build/bootstrap-kernel/kernel-entry.o $(KERNEL_OBJECTS) output/libstream.a build/tomfs/tomfs.o
-	ld --entry=main -o $@ -m elf_i386 -Ttext 0x10000 --oformat binary build/bootstrap-kernel/kernel-entry.o $(KERNEL_OBJECTS) output/libstream.a build/tomfs/tomfs.o
+	ld -o output/bootstrap-kernel.elf -m elf_i386 -Ttext 0x10000 build/bootstrap-kernel/kernel-entry.o $(KERNEL_OBJECTS) build/streamlib/streams.o build/tomfs/tomfs.o
+	ld --entry=main -o $@ -m elf_i386 -Ttext 0x10000 --oformat binary build/bootstrap-kernel/kernel-entry.o $(KERNEL_OBJECTS) build/streamlib/streams.o build/tomfs/tomfs.o
 
 # Standard library
 output/libstd-tom.a: build/stdlib/init.o build/stdlib/printf.o build/stdlib/memcpy.o
@@ -39,13 +39,12 @@ build/stdlib/loader.o: stdlib/loader.asm
 	nasm stdlib/loader.asm -f elf -o build/stdlib/loader.o
 
 # Sample application
-output/sample.elf: build/sample/main.o output/libstd-tom.a output/libstream.a build/stdlib/loader.o
-	ld --entry=__init -o $@ -m elf_i386 build/stdlib/loader.o build/sample/main.o output/libstd-tom.a output/libstream.a
+output/sample.elf: build/sample/main.o output/libstd-tom.a build/streamlib/streams.o build/stdlib/loader.o
+	ld --entry=__init -o $@ -m elf_i386 build/stdlib/loader.o build/sample/main.o output/libstd-tom.a build/streamlib/streams.o
 
 # TomFS test suite
 output/tomfs_test: tomfs/tomfs.c tomfs/tomfs_test.c
-	gcc -o $@ $+
-	output/tomfs_test
+	gcc -I./include -o $@ $+
 
 # TomFS make_fs utility
 output/tomfs_make_fs: tomfs/tomfs.c tomfs/make_fs.c
@@ -90,6 +89,11 @@ disasm: output/bootstrap-kernel.bin output/sample.elf
 vm: image disasm
 	rm -f boot.vhd
 	VBoxManage convertfromraw ./output/image.bin boot.vhd --format VHD --uuid="{8241d56f-3c7e-4907-9db2-0d05ac2430ce}"
+
+# Unit tests
+test: output/tomfs_test output/streamlib_test
+	output/tomfs_test
+	output/streamlib_test
 
 clean:
 	rm -rf build output boot.vhd

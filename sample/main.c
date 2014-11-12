@@ -3,7 +3,6 @@
 
 void main(TKStreamPointer *stdin, TKStreamPointer *stdout) {
     int i;
-    printf_old("Hello, world!\n");
     for (i = 0; i < 20; i++) {
         fprintf(stdout, "Hello, streams! %d\n", i);
     }

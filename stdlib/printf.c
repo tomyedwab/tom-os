@@ -312,22 +312,6 @@ int sprintf(char *buf, const char *fmt, ...)
         return i;
 }
 
-int printf_old(const char *fmt, ...)
-{
-    char *printf_buf = (char*)USER_SHARED_PAGE_VADDR;
-    va_list args;
-    int printed;
-
-    va_start(args, fmt);
-    printed = vsprintf(printf_buf, fmt, args);
-    va_end(args);
-
-    puts();
-
-    return printed;
-}
-
-
 int fprintf(TKStreamPointer *out, const char *fmt, ...)
 {
     va_list args;
