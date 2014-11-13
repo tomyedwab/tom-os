@@ -10,3 +10,4 @@ ata1: enabled=1, ioaddr1=0x170, ioaddr2=0x370, irq=15
 cpu: reset_on_triple_fault=0
 debug: action=report
 panic: action=ask
+clock: sync=realtime, time0=utc, rtc_sync=1
