@@ -52,7 +52,8 @@ output/tomfs_make_fs: tomfs/tomfs.c tomfs/make_fs.c
 
 # TomFS FUSE driver
 output/tomfs_fuse: tomfs/tomfs.c tomfs/fuse.c
-	gcc -I./include -D_FILE_OFFSET_BITS=64 -o $@ $+ -lfuse
+	mkdir -p output
+	gcc -g -I./include -D_FILE_OFFSET_BITS=64 -o $@ $+ -lfuse
 
 # Filesystem
 output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/sample.elf output/bootstrap-kernel.bin
