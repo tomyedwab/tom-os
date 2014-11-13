@@ -111,10 +111,10 @@ TKVProcID procInitUser() {
     }
 
     // Allocate a page for the stack
-    // TODO: Need to be able to extend the stack automatically when a page fault happens
-    info->stack_vaddr = (void*)0x0a000fff;
+    info->stack_vaddr = (void*)USER_STACK_START_VADDR;
     stack_page = (unsigned int)allocPage();
-    vmmMapPage(info->vmm_directory, ((unsigned int)info->stack_vaddr) & 0xfffff000, stack_page, 1);
+    vmmMapPage(info->vmm_directory, ((unsigned int)info->stack_vaddr - 1) & 0xfffff000, stack_page, 1);
+    info->stack_pages = 1;
 
     // Allocate a page for kernel/user shared memory
     info->shared_page_addr = (void *)allocPage();

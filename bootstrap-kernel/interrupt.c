@@ -113,7 +113,7 @@ void initInterrupts() {
     setInterrupt(11, int11_handler);
     setInterrupt(12, int12_handler);
     //setInterrupt(13, exc_gp_handler);
-    //setInterrupt(14, exc_pf_handler);
+    setInterrupt(14, exc_pf_handler);
     setInterrupt(15, int15_handler);
     setInterrupt(16, int16_handler);
     setInterrupt(17, int17_handler);
@@ -156,8 +156,21 @@ void excGeneralProtectionFault(unsigned int error) {
     halt();
 }
 
-void excPageFault() {
-    printStr("Page fault\n");
+void excPageFault(unsigned int address) {
+    if (tk_cur_proc_id != 1) {
+        // User process; check for growing stack downwards
+        TKProcessInfo *info = &tk_process_table[tk_cur_proc_id-1];
+        unsigned int stack_bottom = ((unsigned int)info->stack_vaddr) - (info->stack_pages << 12);
+        if (address < stack_bottom && address >= stack_bottom - 4096) {
+            // User is requesting the next stack page. Allocate it for them.
+            unsigned int stack_page = (unsigned int)allocPage();
+            vmmMapPage(info->vmm_directory, ((unsigned int)stack_bottom - 1) & 0xfffff000, stack_page, 1);
+            info->stack_pages++;
+            return;
+        }
+    }
+    printStr("Page fault at ");
+    printInt(address);
     halt();
 }
 

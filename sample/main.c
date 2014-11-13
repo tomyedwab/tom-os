@@ -1,6 +1,8 @@
 #include <stdlib/stdlib.h>
 #include "streamlib.h"
 
+#define MAX_SNAKE_LENGTH 1000
+
 void die(TKStreamPointer *stdout, int *snake_coords, int snake_length) {
     int j;
     for (j = 0; j < snake_length*2; j+=2) {
@@ -65,7 +67,7 @@ void clearScreen(TKStreamPointer *stdout) {
 void gameLoop(TKStreamPointer *stdin, TKStreamPointer *stdout) {
     int i;
     TKMsgHeader *msg;
-    int snake_coords[64];
+    int snake_coords[MAX_SNAKE_LENGTH*2];
     int snake_length = 2;
     int snake_vx = 1;
     int snake_vy = 0;
@@ -114,9 +116,13 @@ void gameLoop(TKStreamPointer *stdin, TKStreamPointer *stdout) {
         // Did snake eat the goodie?
         if (snake_coords[0] == goodie_pos[0] && snake_coords[1] == goodie_pos[1]) {
             // Grow snake
-            snake_length++;
-            snake_coords[snake_length*2] = snake_coords[snake_length*2-2];
-            snake_coords[snake_length*2+1] = snake_coords[snake_length*2-1];
+            for (i = 0; i < 3; i++) {
+                if (snake_length < MAX_SNAKE_LENGTH-1) {
+                    snake_length++;
+                    snake_coords[snake_length*2] = snake_coords[snake_length*2-2];
+                    snake_coords[snake_length*2+1] = snake_coords[snake_length*2-1];
+                }
+            }
             // Generate a new goodie
             createGoodie(stdout, goodie_pos, snake_coords, snake_length);
         }

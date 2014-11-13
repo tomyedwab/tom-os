@@ -97,9 +97,21 @@ exc_gp_handler:
     iret
 
 exc_pf_handler:
-    push 0x72
+    push eax
+    mov eax, cr3
+    push eax
+    mov eax, 0x200000
+    mov cr3, eax ; Switch to kernel VMM
+
+    mov eax, cr2 ; Pass in the memory address that triggered the fault
+    push eax
     call excPageFault
-    add esp, 8 
+    add esp, 4 
+
+    pop eax
+    mov cr3, eax ; Restore original VMM
+    pop eax
+    add esp, 4 
     iret
 
 int00_handler:

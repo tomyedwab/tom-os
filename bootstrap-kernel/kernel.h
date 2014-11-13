@@ -13,6 +13,7 @@
 #define KERNEL_SYSCALL_STACK_ADDR 0x201000
 #define KERNEL_HEAP_ADDR          0x204000
 #define KERNEL_STREAM_START_VADDR 0xC000000
+#define USER_STACK_START_VADDR    0xA000000
 
 // Typedefs
 typedef unsigned int *TKVPageDirectory;
@@ -25,6 +26,7 @@ typedef struct {
     TKVProcID proc_id;
     TKVPageDirectory vmm_directory;
     void *stack_vaddr;
+    int stack_pages;
     void *shared_page_addr;
     // Kernel has to keep pointers to stdin/stdout so it can read from/write to them
     TKStreamPointer kernel_stdin;  // stdin write pointer
