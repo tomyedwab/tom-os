@@ -33,8 +33,7 @@ void syscallHandler(unsigned int func, unsigned int param1) {
     }
     if (func == 0x3) {
         // Sleep
-        // TODO: pass in a count as a parameter
-        long count = 400;
+        long count = param1;
         long target = getSystemCounter() + count;
         long t, i;
         while ((target - t) > 0) {
