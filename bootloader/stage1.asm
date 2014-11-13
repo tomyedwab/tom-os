@@ -3,39 +3,29 @@
 mov bp, 0x7c00 ; Set stack pointer
 mov sp, bp
 
-; Load 32 sectors of data to 0x7e00
-mov bx, 0x7e00 ; Write to 0x7e00
-mov al, 0x08   ; Read 8 sectors
-mov cl, 0x02   ; Start reading from sector 0x02, after the boot sector
-call read_from_disk
-
-mov bx, 0x8e00 ; Write to 0x8e00
-mov al, 0x08   ; Read 8 sectors
-mov cl, 0x0a   ; Start reading from sector 0x0a
-call read_from_disk
-
-mov bx, 0x9e00 ; Write to 0x9e00
-mov al, 0x08   ; Read 8 sectors
-mov cl, 0x12   ; Start reading from sector 0x12
-call read_from_disk
-
-mov bx, 0xae00 ; Write to 0xae00
-mov al, 0x08   ; Read 8 sectors
-mov cl, 0x1a   ; Start reading from sector 0x1a
 call read_from_disk
 
 jmp 0x7e28    ; Jump to the newly loaded code
 
-; Read 'al' sectors starting at sector 'cl' and writing to 'bx'
+DAPACK:
+    	db	0x10
+	    db	0
+blkcnt:	dw	0x20		; int 13 resets this to # of blocks actually read/written
+db_add:	dw	0x7e00		; memory buffer destination address (0:7e00)
+    	dw	0		    ; in memory page zero
+d_lba:	dd	0x01		; put the lba to read in this spot
+    	dd	0		    ; more storage bytes only for big lba's ( > 4 bytes )
+
+; Read 32 sectors starting at sector 2 and writing to 0x7e00
 read_from_disk:
-    mov ah, 0x02  ; BIOS read sector function
-    mov ch, 0x00  ; Select cylinder 0
-    mov dh, 0x00  ; Select head 0
-    int 0x13      ; BIOS interrupt
+ 
+	mov si, DAPACK		; address of "disk address packet"
+	mov ah, 0x42		; AL is unused
+	mov dl, 0x80		; drive number 0 (OR the drive # with 0x80)
+	int 0x13
+	jc short disk_error_1
 
-    jc disk_error_1 ; Write an error if BIOS reported one
-
-    cmp al, 0x08  ; Check number of sectors actually read
+    cmp word [blkcnt], 0x20  ; Check number of sectors actually read
     jne disk_error_2
 
     ret
