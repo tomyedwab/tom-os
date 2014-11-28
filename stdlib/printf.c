@@ -38,6 +38,7 @@ int strnlen(const char *s, int max_len)
     int count = 0;
     while (*s && max_len-- >= 0) {
         count++;
+        s++;
     }
     return count;
 }

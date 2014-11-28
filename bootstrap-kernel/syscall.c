@@ -28,6 +28,12 @@ void syscallHandler(unsigned int func, unsigned int param1) {
                     printCharAt(pmsg->x, pmsg->y, pmsg->c, pmsg->color);
                     break;
                 }
+
+            case ID_SPAWN_PROCESS:
+                {
+                    TKMsgSpawnProcess *pmsg = (TKMsgSpawnProcess*)msg;
+                    loadELF(pmsg->path_and_filename, &pmsg->path_and_filename[pmsg->filename_offset]);
+                }
             };
         }
     }

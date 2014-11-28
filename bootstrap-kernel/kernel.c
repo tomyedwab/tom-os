@@ -31,12 +31,9 @@ void main() {
     initFilesystem();
     printStr("[OK] Filesystem\n");
 
-    {
-        unsigned int ret;
-        ret = loadELF("/bin", "snake.elf");
-        printStr("App ended: "); printInt(ret); printStr("\n");
-        halt();
-    }
+    loadELF("/bin", "init.elf");
+    printStr("init ended.");
+    halt();
 
     return;
 }

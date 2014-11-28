@@ -28,6 +28,7 @@
 #define ID_PRINT_STRING   0x10
 #define ID_PRINT_CHAR_AT  0x11
 #define ID_KEY_CODE       0x20
+#define ID_SPAWN_PROCESS  0x30
 
 typedef struct {
     TKMsgHeader header; // ID_INIT_STREAM
@@ -54,6 +55,13 @@ typedef struct {
     char ascii; // for TKB_KEY_TYPE_ASCII
     char dir; // for TKB_KEY_TYPE_ARROW
 } TKMsgKeyCode;
+
+typedef struct {
+    TKMsgHeader header; // ID_SPAWN_PROCESS
+    int filename_offset; // Offset of the filename in path_and_filename
+    // Null terminated path + null terminated filename
+    char path_and_filename[];
+} TKMsgSpawnProcess;
 
 // Make va_list work
 typedef unsigned char *va_list;

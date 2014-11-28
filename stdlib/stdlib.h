@@ -20,6 +20,7 @@ int fprintf(TKStreamPointer *out, const char *fmt, ...);
 // 15 - white
 void printCharAt(TKStreamPointer *out, int x, int y, char c, char fg, char bg);
 
+int strnlen(const char *s, int max_len);
 int sprintf(char *buf, const char *fmt, ...);
 int vsprintf(char *buf, const char *fmt, va_list args);
 
@@ -31,3 +32,5 @@ void sleep(int milliseconds);
 
 void srand(unsigned long seed);
 unsigned long rand();
+
+void spawnProcess(TKStreamPointer *out, char *path, char *filename);

@@ -31,12 +31,16 @@ output/bootstrap-kernel.bin: $(KERNEL_OBJECTS) bootstrap-kernel/kernel-entry.asm
 	ld --entry=main -o $@ -m elf_i386 -Ttext 0x10000 --oformat binary build/bootstrap-kernel/kernel-entry.o $(KERNEL_OBJECTS) build/streamlib/streams.o build/tomfs/tomfs.o
 
 # Standard library
-output/libstd-tom.a: build/stdlib/init.o build/stdlib/printf.o build/stdlib/random.o build/stdlib/memcpy.o
+output/libstd-tom.a: build/stdlib/init.o build/stdlib/printf.o build/stdlib/random.o build/stdlib/memcpy.o build/stdlib/process.o
 	mkdir -p output
-	ar rcs $@ build/stdlib/init.o build/stdlib/printf.o build/stdlib/random.o build/stdlib/memcpy.o
+	ar rcs $@ build/stdlib/init.o build/stdlib/printf.o build/stdlib/random.o build/stdlib/memcpy.o build/stdlib/process.o
 
 build/stdlib/loader.o: stdlib/loader.asm
 	nasm stdlib/loader.asm -f elf -o build/stdlib/loader.o
+
+# Init application
+output/init.elf: build/sample/init.o output/libstd-tom.a build/streamlib/streams.o build/stdlib/loader.o
+	ld --entry=__init -o $@ -m elf_i386 build/stdlib/loader.o build/sample/init.o output/libstd-tom.a build/streamlib/streams.o
 
 # Sample application
 output/snake.elf: build/sample/snake.o output/libstd-tom.a build/streamlib/streams.o build/stdlib/loader.o
@@ -55,7 +59,7 @@ output/tomfs_fuse: tomfs/tomfs.c tomfs/fuse.c
 	gcc -I./include -D_FILE_OFFSET_BITS=64 -o $@ $+ -lfuse
 
 # Filesystem
-output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/snake.elf output/bootstrap-kernel.bin
+output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/init.elf output/snake.elf output/bootstrap-kernel.bin
 	mkdir -p mnt
 	rm -f output/filesystem.img.tmp
 	output/tomfs_make_fs output/filesystem.img.tmp
@@ -65,13 +69,14 @@ output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/snake.elf o
 	sleep 1
 	mkdir -p mnt/bin
 	sleep 1
+	cp output/init.elf mnt/bin/init.elf
 	cp output/snake.elf mnt/bin/snake.elf
 	sleep 1
 	fusermount -z -u mnt
 	mv output/filesystem.img.tmp output/filesystem.img
 
 # Complete image
-image: output/bootloader-stage1.bin output/bootloader-stage2.bin output/filesystem.img output/libstd-tom.a output/snake.elf
+image: output/bootloader-stage1.bin output/bootloader-stage2.bin output/filesystem.img output/libstd-tom.a output/snake.elf output/init.elf
 	cat output/bootloader-stage1.bin output/bootloader-stage2.bin > output/image.bin
 	# Pad to 17408 bytes (34 sectors)
 	truncate -s 17408 output/image.bin
