@@ -185,6 +185,9 @@ void handleIRQ(unsigned int id) {
     if (id == 0) {
         // System clock!
         tk_system_counter++;
+
+        // Check for a context switch
+        procCheckContextSwitch(tk_system_counter);
         return;
 
     } else if (id == 1) {

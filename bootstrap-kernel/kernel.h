@@ -10,7 +10,6 @@
 #define INTERRUPT_TABLE_ADDR      0x088000
 #define GDT_ADDR                  0x089000
 #define KERNEL_VMM_ADDR           0x200000
-#define KERNEL_SYSCALL_STACK_ADDR 0x201000
 #define KERNEL_HEAP_ADDR          0x204000
 #define KERNEL_STREAM_START_VADDR 0xC000000
 #define USER_STACK_START_VADDR    0xA000000
@@ -27,6 +26,7 @@ typedef struct {
     TKVPageDirectory vmm_directory;
     void *stack_vaddr;
     int stack_pages;
+    void *kernel_stack_addr;
     void *shared_page_addr;
     // Kernel has to keep pointers to stdin/stdout so it can read from/write to them
     TKStreamPointer kernel_stdin;  // stdin write pointer
@@ -34,6 +34,9 @@ typedef struct {
     // Kernel tracks all stream pointers for the process which are mapped into shared pages
     TKStreamPointer *user_stdin;   // stdin read pointer in kernel memory space
     TKStreamPointer *user_stdout;  // stdout write pointer in kernel memory space
+    long active_start; // last time we switched to this process
+    long active_end; // last time we switched away from this process
+    void *last_active_addr; // PC saved when we last switched away from the process
 } TKProcessInfo;
 
 typedef struct {
@@ -78,6 +81,7 @@ void procInitKernelTSS(void *tss_ptr);
 TKVProcID procInitUser();
 void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest);
 unsigned int procActivateAndJump(TKVProcID proc_id, void *ip);
+void procCheckContextSwitch(long counter);
 void *procGetSharedPage(TKVProcID proc_id);
 TKStreamPointer *procGetStdoutPointer(TKVProcID proc_id);
 void procSyncAllStreams(TKVProcID proc_id);

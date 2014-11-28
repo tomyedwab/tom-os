@@ -34,6 +34,8 @@ typedef struct  __attribute__ ((__packed__)) {
    unsigned short iomap_base;
 } tss_entry_struct;
 
+tss_entry_struct *tk_kernel_tss;
+
 void procInitKernel() {
     int i;
     TKVPageTable table;
@@ -69,13 +71,14 @@ void procInitKernel() {
 
 void procInitKernelTSS(void *tss_ptr) {
     int i;
-    unsigned int syscall_stack = (unsigned int)allocPage();
     tss_entry_struct *tss = (tss_entry_struct*)tss_ptr;
     for (i = 0; i < sizeof(tss_entry_struct); i++)
         ((unsigned char *)tss)[i] = 0;
     tss->ss0 = 0x10; // Kernel data segment
-    tss->esp0 = KERNEL_SYSCALL_STACK_ADDR + 0x1000; // Stack pointer for entry through a call gate
+    tss->esp0 = 0; // This is set on a context switch
     tss->iomap_base = sizeof(tss_entry_struct);
+
+    tk_kernel_tss = tss;
 
     kprintf("Kernel TSS: %X\n", tss_ptr);
 }
@@ -99,16 +102,18 @@ TKVProcID procInitUser() {
         halt();
     }
 
+    info->last_active_addr = 0;
+
     info->vmm_directory = vmmCreateDirectory();
 
     // Identity map kernel code so we can jump into the interrupt handlers
     for (i = 0x8000; i < 0x90000; i += 0x1000) {
         vmmMapPage(info->vmm_directory, i, i, 1);
     }
-    // Identity map syscall stack space
-    for (i = 0x0; i < 0x4000; i += 0x1000) {
-        vmmMapPage(info->vmm_directory, i + KERNEL_SYSCALL_STACK_ADDR, i + KERNEL_SYSCALL_STACK_ADDR, 1);
-    }
+
+    // Allocate a page for the kernel stack
+    info->kernel_stack_addr = (unsigned int)allocPage();
+    vmmMapPage(info->vmm_directory, info->kernel_stack_addr, info->kernel_stack_addr, 1);
 
     // Allocate a page for the stack
     info->stack_vaddr = (void*)USER_STACK_START_VADDR;
@@ -143,7 +148,7 @@ TKVProcID procInitUser() {
     }
 
     kprintf("Created process %d vmm: %X stack %X -> %X\n", info->proc_id, info->vmm_directory, info->stack_vaddr, stack_page);
-    kprintf("Shared page: %X\n", info->shared_page_addr);
+    kprintf("Shared page: %X, Kernel stack: %X\n", info->shared_page_addr, info->kernel_stack_addr);
     return info->proc_id;
 }
 
@@ -158,9 +163,32 @@ unsigned int procActivateAndJump(TKVProcID proc_id, void *ip) {
     unsigned int ret;
     // TODO: Verify process is valid
     tk_cur_proc_id = proc_id;
+    info->active_start = getSystemCounter();
+
+    // Set kernel stack pointer
+    tk_kernel_tss->esp0 = info->kernel_stack_addr + 0x1000; // Stack pointer for entry through a call gate
+
     ret = user_process_jump(info->vmm_directory, info->stack_vaddr, ip);
+    info->active_end = getSystemCounter();
     tk_cur_proc_id = 1;
     return ret;
+}
+
+void procCheckContextSwitch(long counter) {
+    TKProcessInfo *info = &tk_process_table[tk_cur_proc_id-1];
+    // Context switches constant at 60hz for now
+    if (counter - info->active_start > 16) {
+        int i;
+        for (i = 0; i < MAX_PROCESSES; i++) {
+            TKProcessInfo *next_info = &tk_process_table[(tk_cur_proc_id + i) % MAX_PROCESSES];
+            if (next_info->proc_id && next_info->proc_id != tk_cur_proc_id && next_info->proc_id != 1 && next_info->last_active_addr) {
+                printStr("CONTEXT SWITCH!\n");
+                // TODO: Implement context switch
+                return;
+            }
+        }
+    }
+    return;
 }
 
 void *procGetSharedPage(TKVProcID proc_id) {

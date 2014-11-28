@@ -40,8 +40,8 @@ void syscallHandler(unsigned int func, unsigned int param1) {
     if (func == 0x3) {
         // Sleep
         long count = param1;
-        long target = getSystemCounter() + count;
-        long t, i;
+        long t = getSystemCounter(), i;
+        long target = t + count;
         while ((target - t) > 0) {
             t = getSystemCounter();
             i++;

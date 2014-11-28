@@ -53,6 +53,9 @@ user_process_jump:
     mov ebx, [ebp+0x0c] ; Stack pointer
     mov ecx, [ebp+0x10] ; Target address
 
+    mov esp, ebx ; Switch to new stack
+    mov ebp, ebx
+
     mov cr3, eax ; Switch to user VMM
 
     mov ax, 0x23 ; Data segment
