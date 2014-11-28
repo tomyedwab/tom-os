@@ -210,9 +210,10 @@ long __attribute__ ((noinline)) getSystemCounter() {
 }
 
 void sleep(unsigned int count) {
-    long t = getSystemCounter();
+    long t = getSystemCounter(), i;
     long target = t + count;
     while ((target - t) > 0) {
         t = getSystemCounter();
+        ++i; // This is necessary otherwise the compiler does something stupid
     }
 }

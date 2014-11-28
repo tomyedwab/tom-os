@@ -123,9 +123,9 @@ TKVProcID procInitUser(void *entry_vaddr) {
     // Initialize the kernel stack with two frames, one for the context switch and one for the dummy IRQ handler
     kernel_stack = (int *)(info->kernel_stack_addr + 0x1000 - 44);
     // Context switch handler
-    kernel_stack[0] = 0x345; // edi
-    kernel_stack[1] = 0x567; // esi
-    kernel_stack[2] = 0x789; // ebx
+    kernel_stack[0] = 0x0; // edi
+    kernel_stack[1] = 0x0; // esi
+    kernel_stack[2] = 0x0; // ebx
     kernel_stack[3] = info->kernel_stack_addr + 0x1000; // ebp
     kernel_stack[4] = &dummy_irq; // eip
     // Dummy IRQ
