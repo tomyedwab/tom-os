@@ -91,6 +91,7 @@ int tfsInitFilesystem(TFS *tfs, int num_blocks) {
     tfs->header.magic = TFS_MAGIC;
     tfs->header.current_node_id = 1;
     tfs->header.total_blocks = num_blocks;
+    tfs->header.stride_offset = 0;
     // Data blocks are num_blocks - 1 for the filesystem header
     // - ciel((num_blocks - 1) / TFS_BLOCK_GROUP_SIZE) for block bitmaps
     tfs->header.data_blocks = num_blocks - 1 - (num_blocks + TFS_BLOCK_GROUP_SIZE - 2) / TFS_BLOCK_GROUP_SIZE;
