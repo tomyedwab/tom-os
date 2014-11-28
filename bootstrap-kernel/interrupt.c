@@ -171,6 +171,8 @@ void excPageFault(unsigned int address) {
     }
     printStr("Page fault at ");
     printInt(address);
+    printStr("\n");
+    //printStack();
     halt();
 }
 
@@ -185,9 +187,6 @@ void handleIRQ(unsigned int id) {
     if (id == 0) {
         // System clock!
         tk_system_counter++;
-
-        // Check for a context switch
-        procCheckContextSwitch(tk_system_counter);
         return;
 
     } else if (id == 1) {
@@ -211,10 +210,9 @@ long __attribute__ ((noinline)) getSystemCounter() {
 }
 
 void sleep(unsigned int count) {
-    long target = getSystemCounter() + count;
-    long t, i;
+    long t = getSystemCounter();
+    long target = t + count;
     while ((target - t) > 0) {
         t = getSystemCounter();
-        i++;
     }
 }

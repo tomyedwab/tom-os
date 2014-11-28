@@ -22,7 +22,6 @@ At run time:
 0x0c0000 - 0x0fffff Video ROM
 0x100000 - 0x1fffff Unknown stuff VirtualBox cares about?
 0x200000 - 0x200fff Kernel VMM directory
-0x201000 - 0x203fff Kernel syscall stack
 0x204000 - *        Kernel heap
 
 

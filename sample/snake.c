@@ -35,7 +35,7 @@ void createGoodie(TKStreamPointer *stdout, int *goodie_pos, int *snake_coords, i
     while (1) {
         r = (unsigned int)rand();
         goodie_pos[0] = 1 + (r % (TK_SCREEN_COLS-2));
-        goodie_pos[1] = 1 + ((r / (TK_SCREEN_COLS-2)) % (TK_SCREEN_ROWS-2));
+        goodie_pos[1] = 6 + ((r / (TK_SCREEN_COLS-2)) % (TK_SCREEN_ROWS-7));
         if (!collidesWithSnake(goodie_pos[0], goodie_pos[1], snake_coords, snake_length)) {
             break;
         }
@@ -48,15 +48,15 @@ void clearScreen(TKStreamPointer *stdout) {
     int x, y;
     // Clear screen
     for (x = 1; x < TK_SCREEN_COLS - 1; x++) {
-        for (y = 1; y < TK_SCREEN_ROWS - 1; y++) {
+        for (y = 6; y < TK_SCREEN_ROWS - 1; y++) {
             printCharAt(stdout, x, y, ' ', 0, 0);
         }
     }
     for (x = 0; x < TK_SCREEN_COLS; x++) {
-        printCharAt(stdout, x, 0, '#', 1, 0);
+        printCharAt(stdout, x, 5, '#', 1, 0);
         printCharAt(stdout, x, TK_SCREEN_ROWS-1, '#', 1, 0);
     }
-    for (y = 1; y < TK_SCREEN_ROWS - 1; y++) {
+    for (y = 6; y < TK_SCREEN_ROWS - 1; y++) {
         printCharAt(stdout, 0, y, '#', 1, 0);
         printCharAt(stdout, TK_SCREEN_COLS-1, y, '#', 1, 0);
     }
@@ -91,7 +91,7 @@ void gameLoop(TKStreamPointer *stdin, TKStreamPointer *stdout) {
         // Check if the snake hit the wall
         if (next_x < 1 ||
             next_x >= TK_SCREEN_COLS-1 ||
-            next_y < 1 ||
+            next_y < 6 ||
             next_y >= TK_SCREEN_ROWS-1) {
             // Died!
             die(stdout, snake_coords, snake_length);
@@ -158,6 +158,11 @@ void gameLoop(TKStreamPointer *stdin, TKStreamPointer *stdout) {
 }
 
 void main(TKStreamPointer *stdin, TKStreamPointer *stdout) {
+    // TODO: Take this out
+    while (1) {
+        fprintf(stdout, "Snake!\n");
+        sleep(1024);
+    }
     while (1) {
         TKMsgHeader *msg;
         int waiting;

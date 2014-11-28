@@ -33,6 +33,7 @@ void syscallHandler(unsigned int func, unsigned int param1) {
                 {
                     TKMsgSpawnProcess *pmsg = (TKMsgSpawnProcess*)msg;
                     loadELF(pmsg->path_and_filename, &pmsg->path_and_filename[pmsg->filename_offset]);
+                    break;
                 }
             };
         }
@@ -40,11 +41,10 @@ void syscallHandler(unsigned int func, unsigned int param1) {
     if (func == 0x3) {
         // Sleep
         long count = param1;
-        long t = getSystemCounter(), i;
+        long t = getSystemCounter();
         long target = t + count;
         while ((target - t) > 0) {
             t = getSystemCounter();
-            i++;
         }
     }
 }

@@ -31,9 +31,14 @@ void main() {
     initFilesystem();
     printStr("[OK] Filesystem\n");
 
-    loadELF("/bin", "init.elf");
-    printStr("init ended.");
-    halt();
+    if (loadELF("/bin", "init.elf") != 0) {
+        halt();
+    }
+    printStr("[OK] Init\n");
+
+    // TODO: Wait for shutdown signal
+    while (1) {
+    }
 
     return;
 }

@@ -6,7 +6,10 @@
 [extern excPageFault]
 [extern reportInterruptHandler]
 [extern handleIRQ]
+[extern procCheckContextSwitch]
 [global user_process_jump]
+[global dummy_irq]
+[global context_switch]
 [global syscall_handler]
 [global exc_df_handler]
 [global exc_gp_handler]
@@ -50,11 +53,20 @@ user_process_jump:
     push ebp
     mov ebp, esp
     mov eax, [ebp+0x08] ; Directory
-    mov ebx, [ebp+0x0c] ; Stack pointer
-    mov ecx, [ebp+0x10] ; Target address
+    mov edx, [ebp+0x0c] ; Stack pointer
+    mov ecx, [ebp+0x14] ; Pointer to store the old stack pointer in
 
-    mov esp, ebx ; Switch to new stack
-    mov ebp, ebx
+    ; Save the old register values in the old stack
+    push ebx
+    push esi
+    push edi
+
+    ; Switch to new stack
+    mov [ecx], esp
+    mov esp, edx
+
+    mov ecx, [ebp+0x10] ; Target address
+    mov ebp, edx
 
     mov cr3, eax ; Switch to user VMM
 
@@ -65,11 +77,37 @@ user_process_jump:
     mov gs, ax
 
     push 0x23 ; User data segment + level 3
-    push ebx  ; Stack
+    push edx  ; Stack
     pushf
     push 0x1b ; User code segment + level 3
     push ecx
     iret
+
+dummy_irq:
+    iret
+
+context_switch:
+    mov eax, [esp+0x04] ; Pointer to store the old stack pointer in
+    mov edx, [esp+0x08] ; New stack pointer to switch to
+    mov ecx, [esp+0x0c] ; New VMM table
+
+    ; Save the old register values in the old stack
+    push ebp
+    push ebx
+    push esi
+    push edi
+
+    ; Switch stacks
+    mov [eax], esp
+    mov esp, edx
+
+    ; Load the register values from the new stack & jump
+    mov cr3, ecx
+    pop edi
+    pop esi
+    pop ebx
+    pop ebp
+    ret
 
 syscall_handler:
     push ebp
@@ -345,6 +383,8 @@ irq_handler:
     ; Send EOI
     mov al, 0x20
     out 0x20, al
+
+    call procCheckContextSwitch
 
     pop eax
     mov cr3, eax ; Restore user VMM

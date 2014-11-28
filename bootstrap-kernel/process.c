@@ -2,6 +2,10 @@
 
 TKProcessInfo *tk_process_table;
 TKVProcID tk_cur_proc_id = 1;
+int stream_virt_pages = 0;
+
+TKVProcID tk_queued_proc_id;
+void *tk_queued_proc_ip = 0;
 
 // A struct describing a Task State Segment.
 typedef struct  __attribute__ ((__packed__)) {
@@ -67,6 +71,8 @@ void procInitKernel() {
     kprintf("Created kernel process %d vmm: %X\n", info->proc_id, info->vmm_directory);
 
     vmmSwap(info->vmm_directory);
+
+    tk_queued_proc_id = 0;
 }
 
 void procInitKernelTSS(void *tss_ptr) {
@@ -83,10 +89,11 @@ void procInitKernelTSS(void *tss_ptr) {
     kprintf("Kernel TSS: %X\n", tss_ptr);
 }
 
-TKVProcID procInitUser() {
+TKVProcID procInitUser(void *entry_vaddr) {
     int i;
     TKProcessInfo *info = 0;
     TKVPageTable table;
+    unsigned int *kernel_stack;
     unsigned int stack_page;
 
     // First find an unused slot in the process table
@@ -102,8 +109,6 @@ TKVProcID procInitUser() {
         halt();
     }
 
-    info->last_active_addr = 0;
-
     info->vmm_directory = vmmCreateDirectory();
 
     // Identity map kernel code so we can jump into the interrupt handlers
@@ -114,6 +119,24 @@ TKVProcID procInitUser() {
     // Allocate a page for the kernel stack
     info->kernel_stack_addr = (unsigned int)allocPage();
     vmmMapPage(info->vmm_directory, info->kernel_stack_addr, info->kernel_stack_addr, 1);
+
+    // Initialize the kernel stack with two frames, one for the context switch and one for the dummy IRQ handler
+    kernel_stack = (int *)(info->kernel_stack_addr + 0x1000 - 44);
+    // Context switch handler
+    kernel_stack[0] = 0x345; // edi
+    kernel_stack[1] = 0x567; // esi
+    kernel_stack[2] = 0x789; // ebx
+    kernel_stack[3] = info->kernel_stack_addr + 0x1000; // ebp
+    kernel_stack[4] = &dummy_irq; // eip
+    // Dummy IRQ
+    kernel_stack[5] = entry_vaddr; // Entry point
+    kernel_stack[6] = 0x1b; // User code segment + level 3
+    kernel_stack[7] = 0; // flags
+    kernel_stack[8] = USER_STACK_START_VADDR; // Stack
+    kernel_stack[9] = 0x23; // User data segment + level 3
+
+    // Set the "last checkpoint" stack position to the stack we just initialized
+    info->active_stack_addr = kernel_stack;
 
     // Allocate a page for the stack
     info->stack_vaddr = (void*)USER_STACK_START_VADDR;
@@ -127,17 +150,19 @@ TKVProcID procInitUser() {
 
     // Allocate exactly one page each for stdin/stdout
     // TODO: Handle multiple streams per process
-    // TODO: This won't work once there's more than one process
     info->user_stdin = (TKStreamPointer*)info->shared_page_addr;
     streamCreate(
         4096,
         info->proc_id, USER_STREAM_START_VADDR, info->user_stdin,
-        1, KERNEL_STREAM_START_VADDR, &info->kernel_stdin);
+        1, KERNEL_STREAM_START_VADDR + (stream_virt_pages << 12), &info->kernel_stdin);
+    stream_virt_pages += 2;
+
     info->user_stdout = (TKStreamPointer*)((char*)info->shared_page_addr + sizeof(TKStreamPointer));
     streamCreate(
         4096,
-        1, KERNEL_STREAM_START_VADDR + 0x2000, &info->kernel_stdout,
+        1, KERNEL_STREAM_START_VADDR + (stream_virt_pages << 12), &info->kernel_stdout,
         info->proc_id, USER_STREAM_START_VADDR + 0x2000, info->user_stdout);
+    stream_virt_pages += 2;
 
     {
         // Send stdout stream via stdin
@@ -158,32 +183,51 @@ void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest) {
     vmmMapPage(info->vmm_directory, src, dest, 1);
 }
 
-unsigned int procActivateAndJump(TKVProcID proc_id, void *ip) {
+void procStart(TKVProcID proc_id, void *ip) {
+    TKProcessInfo *cur_info = &tk_process_table[tk_cur_proc_id-1];
     TKProcessInfo *info = &tk_process_table[proc_id-1];
-    unsigned int ret;
     // TODO: Verify process is valid
-    tk_cur_proc_id = proc_id;
-    info->active_start = getSystemCounter();
+    
+    if (tk_cur_proc_id == 1) {
+        // Kernel starts the process immediately
+        tk_cur_proc_id = proc_id;
+        info->active_start = getSystemCounter();
 
-    // Set kernel stack pointer
-    tk_kernel_tss->esp0 = info->kernel_stack_addr + 0x1000; // Stack pointer for entry through a call gate
+        // Set kernel stack pointer
+        tk_kernel_tss->esp0 = info->kernel_stack_addr + 0x1000; // Stack pointer for entry through a call gate
 
-    ret = user_process_jump(info->vmm_directory, info->stack_vaddr, ip);
-    info->active_end = getSystemCounter();
-    tk_cur_proc_id = 1;
-    return ret;
+        user_process_jump(info->vmm_directory, info->stack_vaddr, ip, &cur_info->active_stack_addr);
+    }
 }
 
-void procCheckContextSwitch(long counter) {
-    TKProcessInfo *info = &tk_process_table[tk_cur_proc_id-1];
-    // Context switches constant at 60hz for now
-    if (counter - info->active_start > 16) {
+void procDoContextSwitch(TKProcessInfo *cur_info, TKProcessInfo *next_info) {
+    kprintf("CONTEXT SWITCH %d TO %d (%X)\n", cur_info->proc_id, next_info->proc_id, next_info->active_stack_addr); // donotcheckin
+
+    // Update old process info
+    cur_info->active_end = getSystemCounter();
+
+    // Switch to new process
+    next_info->active_start = cur_info->active_end;
+    tk_cur_proc_id = next_info->proc_id;
+    tk_kernel_tss->esp0 = next_info->kernel_stack_addr + 0x1000; // Set kernel stack pointer
+    context_switch(&cur_info->active_stack_addr, next_info->active_stack_addr, next_info->vmm_directory);
+}
+
+void procCheckContextSwitch() {
+    long counter = getSystemCounter();
+    TKProcessInfo *cur_info = &tk_process_table[tk_cur_proc_id-1];
+
+    // Context switches constant at 1hz for now
+    // TODO: Switch to > 16 / 60hz
+    if (counter > cur_info->active_start + 1024L) {
         int i;
-        for (i = 0; i < MAX_PROCESSES; i++) {
-            TKProcessInfo *next_info = &tk_process_table[(tk_cur_proc_id + i) % MAX_PROCESSES];
-            if (next_info->proc_id && next_info->proc_id != tk_cur_proc_id && next_info->proc_id != 1 && next_info->last_active_addr) {
-                printStr("CONTEXT SWITCH!\n");
-                // TODO: Implement context switch
+        for (i = 0; i < MAX_PROCESSES - 1; i++) {
+            int idx = (((int)tk_cur_proc_id) + i) % MAX_PROCESSES;
+            TKProcessInfo *next_info = &tk_process_table[idx];
+            if (next_info->proc_id != 0 && next_info->proc_id != 1 &&
+                    next_info->proc_id != tk_cur_proc_id &&
+                    next_info->active_stack_addr) {
+                procDoContextSwitch(cur_info, next_info);
                 return;
             }
         }

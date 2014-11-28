@@ -36,7 +36,7 @@ typedef struct {
     TKStreamPointer *user_stdout;  // stdout write pointer in kernel memory space
     long active_start; // last time we switched to this process
     long active_end; // last time we switched away from this process
-    void *last_active_addr; // PC saved when we last switched away from the process
+    void *active_stack_addr; // PC saved when we last switched away from the process
 } TKProcessInfo;
 
 typedef struct {
@@ -49,7 +49,9 @@ typedef struct {
 } TKStreamInfo;
 
 // kernel-entry.asm
-unsigned int user_process_jump(TKVPageDirectory proc_id, void *stack_ptr, void *ip);
+void user_process_jump(TKVPageDirectory proc_id, void *stack_ptr, void *ip, void **stack_save_addr);
+void dummy_irq();
+void context_switch(void **stack_save_addr, void *new_stack, void *new_vmm_directory);
 
 // Global descriptor table
 void gdtInit(void);
@@ -80,8 +82,8 @@ void procInitKernel();
 void procInitKernelTSS(void *tss_ptr);
 TKVProcID procInitUser();
 void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest);
-unsigned int procActivateAndJump(TKVProcID proc_id, void *ip);
-void procCheckContextSwitch(long counter);
+void procStart(TKVProcID proc_id, void *ip);
+void procCheckContextSwitch();
 void *procGetSharedPage(TKVProcID proc_id);
 TKStreamPointer *procGetStdoutPointer(TKVProcID proc_id);
 void procSyncAllStreams(TKVProcID proc_id);
@@ -126,6 +128,9 @@ void initFilesystem();
 
 // Memcpy
 void memcpy(void *dest, void *src, int bytes);
+
+// ELF
+int loadELF(const char *path, const char *file_name);
 
 // Stream
 void streamInit();

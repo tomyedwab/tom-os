@@ -50,7 +50,7 @@ typedef struct {
     unsigned short shstrndx;
 } ELFHeader;
 
-unsigned int loadELF(const char *path, const char *file_name) {
+int loadELF(const char *path, const char *file_name) {
     int i, j, ret;
     ELFHeader *header;
     ELFSection *stringTable;
@@ -91,7 +91,7 @@ unsigned int loadELF(const char *path, const char *file_name) {
         return -1;
     }
 
-    proc_id = procInitUser();
+    proc_id = procInitUser(header->entry);
 
     //kprintf("String table: %04x\n", header->shstrndx);
     stringTable = (ELFSection*)&buffer[header->shoff + header->shstrndx * header->shentsize];
@@ -112,7 +112,7 @@ unsigned int loadELF(const char *path, const char *file_name) {
         procMapPage(proc_id, (unsigned int)pheader->v_addr, (unsigned int)phMem);
         // Map to kernel memory space as well
         procMapPage(1, LOADER_VADDR_BASE + (i<<12), (unsigned int)phMem);
-        kprintf("Mapped %X to %x, Kernel: %X\n", pheader->v_addr, (unsigned int)phMem, LOADER_VADDR_BASE + (i<<12));
+        //kprintf("Mapped %X to %x, Kernel: %X\n", pheader->v_addr, (unsigned int)phMem, LOADER_VADDR_BASE + (i<<12));
     }
 
     for (i = 0; i < header->shnum - 1; i++) {
@@ -129,8 +129,10 @@ unsigned int loadELF(const char *path, const char *file_name) {
                 kernel_addr = (section->addr & 0xfff) + LOADER_VADDR_BASE + (j<<12);
             }
         }
+        /*
         kprintf("Section %d: %s\n", i, &strings[section->name]);
         kprintf("  addr %X  kernel %X offset %X size %X\n", section->addr, kernel_addr, section->offset, section->size);
+        */
 
         if (kernel_addr == 0) {
             kprintf("PROC ERROR: Cannot find page for address: %X\n", section->addr);
@@ -143,7 +145,6 @@ unsigned int loadELF(const char *path, const char *file_name) {
     kprintf("Running ELF... %X\n", header->entry);
 
     // Switch to the process memory space & immediately jump
-    ret = procActivateAndJump(proc_id, header->entry);
-    printStr("ELF exited.\n");
-    return ret;
+    procStart(proc_id, header->entry);
+    return 0;
 }
