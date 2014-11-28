@@ -39,8 +39,8 @@ build/stdlib/loader.o: stdlib/loader.asm
 	nasm stdlib/loader.asm -f elf -o build/stdlib/loader.o
 
 # Sample application
-output/sample.elf: build/sample/main.o output/libstd-tom.a build/streamlib/streams.o build/stdlib/loader.o
-	ld --entry=__init -o $@ -m elf_i386 build/stdlib/loader.o build/sample/main.o output/libstd-tom.a build/streamlib/streams.o
+output/snake.elf: build/sample/snake.o output/libstd-tom.a build/streamlib/streams.o build/stdlib/loader.o
+	ld --entry=__init -o $@ -m elf_i386 build/stdlib/loader.o build/sample/snake.o output/libstd-tom.a build/streamlib/streams.o
 
 # TomFS test suite
 output/tomfs_test: tomfs/tomfs.c tomfs/tomfs_test.c
@@ -55,7 +55,7 @@ output/tomfs_fuse: tomfs/tomfs.c tomfs/fuse.c
 	gcc -I./include -D_FILE_OFFSET_BITS=64 -o $@ $+ -lfuse
 
 # Filesystem
-output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/sample.elf output/bootstrap-kernel.bin
+output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/snake.elf output/bootstrap-kernel.bin
 	mkdir -p mnt
 	rm -f output/filesystem.img.tmp
 	output/tomfs_make_fs output/filesystem.img.tmp
@@ -63,15 +63,15 @@ output/filesystem.img: output/tomfs_make_fs output/tomfs_fuse output/sample.elf 
 	sleep 1
 	cp output/bootstrap-kernel.bin mnt/kernel
 	sleep 1
-	mkdir -p mnt/sample
+	mkdir -p mnt/bin
 	sleep 1
-	cp output/sample.elf mnt/sample/sample.elf
+	cp output/snake.elf mnt/bin/snake.elf
 	sleep 1
 	fusermount -z -u mnt
 	mv output/filesystem.img.tmp output/filesystem.img
 
 # Complete image
-image: output/bootloader-stage1.bin output/bootloader-stage2.bin output/filesystem.img output/libstd-tom.a output/sample.elf
+image: output/bootloader-stage1.bin output/bootloader-stage2.bin output/filesystem.img output/libstd-tom.a output/snake.elf
 	cat output/bootloader-stage1.bin output/bootloader-stage2.bin > output/image.bin
 	# Pad to 17408 bytes (34 sectors)
 	truncate -s 17408 output/image.bin
@@ -80,11 +80,11 @@ image: output/bootloader-stage1.bin output/bootloader-stage2.bin output/filesyst
 	truncate -s 10813440 output/image.bin
 
 # Disassembly
-disasm: output/bootstrap-kernel.bin output/sample.elf
+disasm: output/bootstrap-kernel.bin output/snake.elf
 	ndisasm -b 32 -o 0x10000 output/bootstrap-kernel.bin > output/bootstrap-kernel.bin.as
-	ndisasm -b 32 -e 160 -o 0x080480A0 output/sample.elf > output/sample.elf.as
+	ndisasm -b 32 -e 160 -o 0x080480A0 output/snake.elf > output/snake.elf.as
 	readelf -s output/bootstrap-kernel.elf > output/bootstrap-kernel.syms
-	readelf -s output/sample.elf > output/sample.syms
+	readelf -s output/snake.elf > output/snake.syms
 
 vm: image disasm
 	rm -f boot.vhd

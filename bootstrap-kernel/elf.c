@@ -61,11 +61,11 @@ unsigned int loadELF(const char *path, const char *file_name) {
     int mode, block_idx, size;
 
     if ((dir = tfsOpenPath(&gTFS, path)) == NULL) {
-        kprintf("Could not find path %s!", path);
+        kprintf("Could not find path %s!\n", path);
         return -1;
     }
     if (tfsFindEntry(&gTFS, dir, file_name, &mode, &block_idx, &size) != 0) {
-        kprintf("Could not find file %s!", file_name);
+        kprintf("Could not find file %s!\n", file_name);
         tfsCloseHandle(dir);
         return -1;
     }

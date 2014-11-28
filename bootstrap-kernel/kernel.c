@@ -33,9 +33,9 @@ void main() {
 
     {
         unsigned int ret;
-        printStr("Loaded app from disk.\n");
-        ret = loadELF("/sample", "sample.elf");
+        ret = loadELF("/bin", "snake.elf");
         printStr("App ended: "); printInt(ret); printStr("\n");
+        halt();
     }
 
     return;
