@@ -202,7 +202,7 @@ void procStart(TKVProcID proc_id, void *ip) {
 }
 
 void procDoContextSwitch(TKProcessInfo *cur_info, TKProcessInfo *next_info) {
-    kprintf("CONTEXT SWITCH %d TO %d (%X)\n", cur_info->proc_id, next_info->proc_id, next_info->active_stack_addr); // donotcheckin
+    //kprintf("CONTEXT SWITCH %d TO %d (%X)\n", cur_info->proc_id, next_info->proc_id, next_info->active_stack_addr); // donotcheckin
 
     // Update old process info
     cur_info->active_end = getSystemCounter();
@@ -218,10 +218,9 @@ void procCheckContextSwitch() {
     long counter = getSystemCounter();
     TKProcessInfo *cur_info = &tk_process_table[tk_cur_proc_id-1];
 
-    // Context switches constant at 1hz for now
-    // TODO: Switch to > 16 / 60hz
+    // Context switches constant at 60hz for now
     if (cur_info->flags & PROC_FLAGS_TERMINATED ||
-            counter > cur_info->active_start + 1024L) {
+            counter > cur_info->active_start + 16L) {
         int i;
         for (i = 0; i < MAX_PROCESSES - 1; i++) {
             int idx = (((int)tk_cur_proc_id) + i) % MAX_PROCESSES;

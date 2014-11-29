@@ -111,6 +111,7 @@ context_switch:
 
 syscall_handler:
     push ebp
+    cli
     mov ebp, esp
     mov eax, cr3
     push eax
@@ -121,8 +122,9 @@ syscall_handler:
     call syscallHandler
     add esp, 8
     pop eax
-    pop ebp
     mov cr3, eax ; Restore user VMM
+    pop ebp
+    sti
     retf 8
 
 exc_df_handler:

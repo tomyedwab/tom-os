@@ -158,9 +158,6 @@ void gameLoop(TKStreamPointer *stdin, TKStreamPointer *stdout) {
 }
 
 void main(TKStreamPointer *stdin, TKStreamPointer *stdout) {
-    // TODO: Take this out
-    fprintf(stdout, "Snake!\n");
-    return;
     while (1) {
         TKMsgHeader *msg;
         int waiting;

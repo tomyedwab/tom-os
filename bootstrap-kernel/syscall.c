@@ -40,12 +40,14 @@ void syscallHandler(unsigned int func, unsigned int param1) {
     }
     if (func == 0x3) {
         // Sleep
+        __asm__ ("sti");
         long count = param1;
         long t = getSystemCounter();
         long target = t + count;
         while ((target - t) > 0) {
             t = getSystemCounter();
         }
+        __asm__ ("cli");
     }
     if (func == 0x4) {
         // Exit process

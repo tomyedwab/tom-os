@@ -34,7 +34,6 @@ void main(TKStreamPointer *stdin, TKStreamPointer *stdout) {
     minute = 0;
     second = 0;
     while (1) {
-        /*
         displayClock(stdout);
         sleep(1024);
         second++;
@@ -46,9 +45,5 @@ void main(TKStreamPointer *stdin, TKStreamPointer *stdout) {
                 hour++;
             }
         }
-        */
-        // TODO: Take this out
-        fprintf(stdout, "Here!\n");
-        sleep(1024);
     }
 }
