@@ -14,6 +14,9 @@
 #define KERNEL_STREAM_START_VADDR 0xC000000
 #define USER_STACK_START_VADDR    0xA000000
 
+// Process flags
+#define PROC_FLAGS_TERMINATED     (1<<0)
+
 // Typedefs
 typedef unsigned int *TKVPageDirectory;
 typedef unsigned int *TKVPageTable;
@@ -24,6 +27,7 @@ typedef unsigned int TKStreamID;
 typedef struct {
     TKVProcID proc_id;
     TKVPageDirectory vmm_directory;
+    int flags;
     void *stack_vaddr;
     int stack_pages;
     void *kernel_stack_addr;
@@ -84,6 +88,7 @@ TKVProcID procInitUser();
 void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest);
 void procStart(TKVProcID proc_id, void *ip);
 void procCheckContextSwitch();
+void procExit();
 void *procGetSharedPage(TKVProcID proc_id);
 TKStreamPointer *procGetStdoutPointer(TKVProcID proc_id);
 void procSyncAllStreams(TKVProcID proc_id);

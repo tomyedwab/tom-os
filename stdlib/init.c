@@ -14,4 +14,5 @@ void __init() {
     stdout_ptr = msg->pointer;
 
     main(stdin_ptr, stdout_ptr);
+    exit();
 }

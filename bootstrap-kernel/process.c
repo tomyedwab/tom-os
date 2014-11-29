@@ -109,6 +109,7 @@ TKVProcID procInitUser(void *entry_vaddr) {
         halt();
     }
 
+    info->flags = 0;
     info->vmm_directory = vmmCreateDirectory();
 
     // Identity map kernel code so we can jump into the interrupt handlers
@@ -219,12 +220,14 @@ void procCheckContextSwitch() {
 
     // Context switches constant at 1hz for now
     // TODO: Switch to > 16 / 60hz
-    if (counter > cur_info->active_start + 1024L) {
+    if (cur_info->flags & PROC_FLAGS_TERMINATED ||
+            counter > cur_info->active_start + 1024L) {
         int i;
         for (i = 0; i < MAX_PROCESSES - 1; i++) {
             int idx = (((int)tk_cur_proc_id) + i) % MAX_PROCESSES;
             TKProcessInfo *next_info = &tk_process_table[idx];
             if (next_info->proc_id != 0 && next_info->proc_id != 1 &&
+                    !(next_info->flags & PROC_FLAGS_TERMINATED) &&
                     next_info->proc_id != tk_cur_proc_id &&
                     next_info->active_stack_addr) {
                 procDoContextSwitch(cur_info, next_info);
@@ -233,6 +236,17 @@ void procCheckContextSwitch() {
         }
     }
     return;
+}
+
+void procExit() {
+    TKProcessInfo *cur_info = &tk_process_table[tk_cur_proc_id-1];
+    kprintf("Terminating process %d\n", cur_info->proc_id);
+    cur_info->flags |= PROC_FLAGS_TERMINATED;
+    cur_info->active_stack_addr = 0;
+    cur_info->active_end = getSystemCounter();
+    // TODO: Clean up process? Have to be careful since other processes may
+    // still be reading from streams.
+    procCheckContextSwitch();
 }
 
 void *procGetSharedPage(TKVProcID proc_id) {

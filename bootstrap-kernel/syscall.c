@@ -47,4 +47,8 @@ void syscallHandler(unsigned int func, unsigned int param1) {
             t = getSystemCounter();
         }
     }
+    if (func == 0x4) {
+        // Exit process
+        procExit();
+    }
 }
