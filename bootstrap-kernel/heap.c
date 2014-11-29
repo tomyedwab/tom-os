@@ -3,19 +3,22 @@
 
 int current_page;
 
-// Memory map consists of:
-// Up to 10 segments
-//   base = 8 bytes, length = 8 bytes
-// = 160 bytes
-// Bitmap, 1 bit per 256-page block
-// 16 GB of memory = 16*1024*1024*1024/4096/256 = 16384 bits = 2048 bytes
-// = 2208 bytes total
+// Memory map header consists of:
+// 1. Total memory assigned to heap = 8 bytes
+// 2. Total unassigned memory remaining in heap = 8 bytes
+// 3. Up to 10 segments
+//    base = 8 bytes, length = 8 bytes, bitmap offset = 4 bytes
+//    = 200 bytes
+// 4. Bitmap, 2 bits per 256-page block: 00 = empty, 01 = not full, 11 = full
+//    8 GB of memory = 8*1024*1024*1024*2/4096/256 = 16384 bits = 2048 bytes
+//  = 2264 bytes total
 
 #define MAX_HEAP_MEMORY_SEGMENTS 10
 
 typedef struct {
-    long base;
-    long length;
+    unsigned long base;
+    unsigned long length;
+    unsigned int bitmap_offset;
 } TKHeapSegmentInfo;
 
 typedef struct {
@@ -40,9 +43,14 @@ void initHeap() {
 
     kprintf("Memory map:\n");
     for (i = 0; i < mmap_length; i++) {
-        long base = *(long*)(0x88010 + 24 * i);
-        long length = *(long*)(0x88018 + 24 * i);
+        unsigned long base = *(unsigned long*)(0x88010 + 24 * i);
+        unsigned long length = *(unsigned long*)(0x88018 + 24 * i);
         long type = *(int*)(0x88020 + 24 * i);
+
+        // Align to 4096-byte boundary
+        if ((base & 0x3ff) != 0) {
+            base = (base + 0x400) & ~0x3ff;
+        }
         kprintf("%016X - %016X %08X\n", base, base+length-1, type);
 
         if (type == 1 || type == 3) {
@@ -67,8 +75,19 @@ void initHeap() {
         }
     }
 
+    heap_header->segments[0].bitmap_offset = 0;
     for (i = 0; i <= cur_segment; i++) {
-        kprintf("Segment %d: %016X - %016X\n", i, heap_header->segments[i].base, heap_header->segments[i].length);
+        int idx;
+        if (i > 0) {
+            // Bitmap size = length / 4096 / 256 / 4 = length >> 22
+            heap_header->segments[i].bitmap_offset = heap_header->segments[i-1].bitmap_offset + (heap_header->segments[i-1].length >> 22);
+        }
+        kprintf("Segment %d: %016X - %016X (%d)\n", i, heap_header->segments[i].base, heap_header->segments[i].base+heap_header->segments[i].length, heap_header->segments[i].bitmap_offset);
+
+        // Clear the bitmap
+        for (idx = (heap_header->segments[i].length >> 22) - 1; idx >= 0; --idx) {
+            heap_header->memory_bitmap[heap_header->segments[i].bitmap_offset + idx] = 0;
+        }
     }
 
     kprintf("Found %d kbytes of memory (%d kbytes for heap)\n",

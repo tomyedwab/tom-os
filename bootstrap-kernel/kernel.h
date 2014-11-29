@@ -11,6 +11,8 @@
 #define GDT_ADDR                  0x089000
 #define KERNEL_VMM_ADDR           0x200000
 #define KERNEL_HEAP_ADDR          0x204000
+
+// Virtual addresses
 #define KERNEL_STREAM_START_VADDR 0xC000000
 #define USER_STACK_START_VADDR    0xA000000
 
