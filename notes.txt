@@ -19,10 +19,10 @@ At run time:
 0x089000 - 0x089fff GDT
 0x08a000 - 0x090000 Kernel stack (boot.asm)
 0x090000 - 0x0903ff Heap header
+0x091000 - 0x091fff Kernel VMM directory
 0x0a0000 - 0x0bffff Video memory
 0x0c0000 - 0x0fffff Video ROM
 0x100000 - 0x1fffff Unknown stuff VirtualBox cares about?
-0x200000 - 0x200fff Kernel VMM directory
 0x204000 - *        Kernel heap
 
 

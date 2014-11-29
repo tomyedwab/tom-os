@@ -9,7 +9,7 @@
 // Hard-coded addresses
 #define INTERRUPT_TABLE_ADDR      0x088000
 #define GDT_ADDR                  0x089000
-#define KERNEL_VMM_ADDR           0x200000
+#define KERNEL_VMM_ADDR           0x091000
 #define KERNEL_HEAP_ADDR          0x204000
 
 // Virtual addresses

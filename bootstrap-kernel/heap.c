@@ -9,7 +9,8 @@ int current_page;
 // 3. Up to 10 segments
 //    base = 8 bytes, length = 8 bytes, bitmap offset = 4 bytes
 //    = 200 bytes
-// 4. Bitmap, 2 bits per 256-page block: 00 = empty, 01 = not full, 11 = full
+// 4. Bitmap, 2 bits per 256-page page block:
+//      (00 = empty, 01 = not full, 11 = full)
 //    8 GB of memory = 8*1024*1024*1024*2/4096/256 = 16384 bits = 2048 bytes
 //  = 2264 bytes total
 
@@ -28,7 +29,19 @@ typedef struct {
     char memory_bitmap[];
 } TKHeapHeader;
 
+// Each 256-page block begins with one page of page information
+// 255 pages * 16 bytes = 4080 bytes
+// TODO: Track more information so we can maybe someday deallocate memory
+typedef struct {
+    char type; // Currently 0 = available, 1 = allocated
+    char reserved[15];
+} TKHeapPageInfo;
+
 TKHeapHeader *heap_header = (TKHeapHeader*)0x090000;
+
+// Iterators that we keep around to continuously traverse the free list
+int heap_segment = 0;
+int heap_byte = 0;
 
 void initHeap() {
     int i, mmap_length = *((int*)0x88000);
@@ -93,23 +106,110 @@ void initHeap() {
     kprintf("Found %d kbytes of memory (%d kbytes for heap)\n",
             total_memory >> 10, heap_header->heap_memory >> 10);
 
-    heap_header->remaining_memory = heap_header->heap_memory;
+    // 1 page out of every 256 is used for page group header
+    heap_header->remaining_memory = (heap_header->heap_memory * 255) / 256;
 
     // Start a this page and keep handing out pages going up the address space
     current_page = KERNEL_HEAP_ADDR;
 }
 
+void *_allocPageFromGroup(int segment, int page_group, int bitmap_flags) {
+    int page;
+    TKHeapPageInfo *group_header = (TKHeapPageInfo *)(heap_header->segments[segment].base + page_group * 256 * 4096);
+
+    if (bitmap_flags == 3) {
+        return 0; // Group is full
+    }
+    if (bitmap_flags == 0) {
+        // The page group is uninitialized, mark all the pages available
+        for (page = 0; page < 255; page++) {
+            group_header[page].type = 0; // available
+        }
+
+        // Update the allocation bitmap
+        heap_header->memory_bitmap[heap_header->segments[segment].bitmap_offset + (page_group / 4)] |= (1 << ((page_group % 4) * 2));
+    }
+
+    for (page = 0; page < 255; page++) {
+        if (group_header[page].type == 0) {
+            void *ret;
+            // We have an uninitialized page! Grab it.
+            group_header[page].type = 1;
+            
+            heap_header->remaining_memory -= 4096;
+
+            ret = (void *)(heap_header->segments[segment].base + (page_group * 256 + page + 1) * 4096);
+
+            //kprintf("ALLOC %d:%d:%d (%X)\n", segment, page_group, page, ret);
+
+            return ret;
+        }
+    }
+
+    // We must be full; update the allocation bitmap
+    heap_header->memory_bitmap[heap_header->segments[segment].bitmap_offset + (page_group / 4)] |= (1 << ((page_group % 4) * 2 + 1));
+    return 0; // Group is full
+}
+
+// TODO: Rename heapAllocPage()
 void *allocPage() {
-    int i;
-    int page = current_page;
-    for (i = 0; i < 4096; i++)
-        ((char*)page)[i] = 0;
-    current_page += 0x1000;
-    return (void *)page;
+    int heap_segment_count = heap_header->segments[heap_segment].length >> 22;
+    while (1) {
+        char bitmap_byte;
+        void *ret;
+
+        // If there's no segment here, skip to the next one
+        if (heap_header->segments[heap_segment].base == 0) {
+            heap_segment++;
+            if (heap_segment == MAX_HEAP_MEMORY_SEGMENTS) {
+                heap_segment = 0;
+            }
+            heap_segment_count = heap_header->segments[heap_segment].length >> 22;
+            continue;
+        }
+
+        // If we're past the end of the bitmap, skip to the next segment
+        if (heap_byte >= heap_segment_count) {
+            heap_segment++;
+            if (heap_segment == MAX_HEAP_MEMORY_SEGMENTS) {
+                heap_segment = 0;
+            }
+            heap_segment_count = heap_header->segments[heap_segment].length >> 22;
+            continue;
+        }
+
+        // Test the bitmap
+        bitmap_byte = heap_header->memory_bitmap[heap_header->segments[heap_segment].bitmap_offset + heap_byte];
+
+        // Page group 1
+        ret = _allocPageFromGroup(heap_segment, (heap_byte * 4), bitmap_byte & 0x3);
+        if (ret) { return ret; }
+
+        // Page group 2
+        ret = _allocPageFromGroup(heap_segment, (heap_byte * 4) + 1, (bitmap_byte>>2) & 0x3);
+        if (ret) { return ret; }
+
+        // Page group 3
+        ret = _allocPageFromGroup(heap_segment, (heap_byte * 4) + 2, (bitmap_byte>>4) & 0x3);
+        if (ret) { return ret; }
+
+        // Page group 4
+        ret = _allocPageFromGroup(heap_segment, (heap_byte * 4) + 3, (bitmap_byte>>6) & 0x3);
+        if (ret) { return ret; }
+
+        // None found; move to next set of page groups
+        bitmap_byte++;
+    }
+
+    kprintf("Ran out of memory!\n");
+    halt();
+    return 0;
 }
 
 void *heapAllocContiguous(int num_pages) {
+    // TODO: Remove this
     int page = current_page;
     current_page += num_pages << 12;
     return (void *)page;
 }
+

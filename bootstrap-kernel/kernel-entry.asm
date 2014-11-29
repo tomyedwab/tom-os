@@ -115,7 +115,7 @@ syscall_handler:
     mov ebp, esp
     mov eax, cr3
     push eax
-    mov eax, 0x200000
+    mov eax, 0x091000
     mov cr3, eax ; Switch to kernel VMM
     push dword [ebp+0x10] ; 2nd argument
     push dword [ebp+0x0c] ; 1st argument
@@ -143,7 +143,7 @@ exc_pf_handler:
     push eax
     mov eax, cr3
     push eax
-    mov eax, 0x200000
+    mov eax, 0x091000
     mov cr3, eax ; Switch to kernel VMM
 
     mov eax, cr2 ; Pass in the memory address that triggered the fault
@@ -375,7 +375,7 @@ irq_handler:
     push edx
     mov eax, cr3
     push eax
-    mov eax, 0x200000
+    mov eax, 0x091000
     mov cr3, eax ; Switch to kernel VMM
 
     push ebx
