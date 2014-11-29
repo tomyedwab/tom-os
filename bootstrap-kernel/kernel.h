@@ -18,6 +18,7 @@
 
 // Process flags
 #define PROC_FLAGS_TERMINATED     (1<<0)
+#define PROC_FLAGS_RUNNABLE       (1<<1)
 
 // Typedefs
 typedef unsigned int *TKVPageDirectory;

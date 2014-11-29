@@ -175,6 +175,7 @@ TKVProcID procInitUser(void *entry_vaddr) {
 
     kprintf("Created process %d vmm: %X stack %X -> %X\n", info->proc_id, info->vmm_directory, info->stack_vaddr, stack_page);
     kprintf("Shared page: %X, Kernel stack: %X\n", info->shared_page_addr, info->kernel_stack_addr);
+
     return info->proc_id;
 }
 
@@ -197,7 +198,13 @@ void procStart(TKVProcID proc_id, void *ip) {
         // Set kernel stack pointer
         tk_kernel_tss->esp0 = info->kernel_stack_addr + 0x1000; // Stack pointer for entry through a call gate
 
+        // Set the runnable flag at the last possible moment
+        info->flags |= PROC_FLAGS_RUNNABLE;
+
         user_process_jump(info->vmm_directory, info->stack_vaddr, ip, &cur_info->active_stack_addr);
+    } else {
+        // Set the runnable flag
+        info->flags |= PROC_FLAGS_RUNNABLE;
     }
 }
 
@@ -226,7 +233,7 @@ void procCheckContextSwitch() {
             int idx = (((int)tk_cur_proc_id) + i) % MAX_PROCESSES;
             TKProcessInfo *next_info = &tk_process_table[idx];
             if (next_info->proc_id != 0 && next_info->proc_id != 1 &&
-                    !(next_info->flags & PROC_FLAGS_TERMINATED) &&
+                    next_info->flags & PROC_FLAGS_RUNNABLE &&
                     next_info->proc_id != tk_cur_proc_id &&
                     next_info->active_stack_addr) {
                 procDoContextSwitch(cur_info, next_info);
@@ -240,6 +247,7 @@ void procCheckContextSwitch() {
 void procExit() {
     TKProcessInfo *cur_info = &tk_process_table[tk_cur_proc_id-1];
     kprintf("Terminating process %d\n", cur_info->proc_id);
+    cur_info->flags &= ~PROC_FLAGS_RUNNABLE;
     cur_info->flags |= PROC_FLAGS_TERMINATED;
     cur_info->active_stack_addr = 0;
     cur_info->active_end = getSystemCounter();
