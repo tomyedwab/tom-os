@@ -2,9 +2,36 @@
 
 char is_shift_pressed;
 char state_arrow_key;
+TKStreamPointer *keyboard_output_stream;
 
 void keyboardInit() {
     is_shift_pressed = 0;
+    keyboard_output_stream = 0;
+}
+
+void keyboardOpenStream(TKVProcID proc, int request_num) {
+    TKStreamPointer *user_stream;
+    TKMsgInitStream *init_msg;
+
+    if (keyboard_output_stream != 0) {
+        // For now, only one process can capture the keyboard input at a
+        // time.
+        return 0;
+    }
+
+    // Create a new stream in both the kernel and user processes
+    procCreateStream(proc, 1, &user_stream, &keyboard_output_stream);
+
+    init_msg = (TKMsgInitStream*)streamCreateMsg(procGetStdinPointer(tk_cur_proc_id), ID_INIT_STREAM, sizeof(TKMsgInitStream));
+    if (init_msg) {
+        // Translate the user's stream pointer to the user's address space
+        init_msg->pointer = (TKStreamPointer*)heapSmallAllocGetVAddr(user_stream);
+        // Pass back the request number so the caller knows which stream this is
+        init_msg->request_num = request_num;
+    }
+
+    // Flush the write
+    streamSync(proc);
 }
 
 void keyboardProcessCode(unsigned char code) {
@@ -159,15 +186,15 @@ void keyboardProcessCode(unsigned char code) {
         }
     }
 
-    if (type != 0) {
-        TKMsgKeyCode *msg = (TKMsgKeyCode*)streamCreateMsg(procGetStdinPointer(tk_cur_proc_id), ID_KEY_CODE, sizeof(TKMsgKeyCode));
+    if (type != 0 && keyboard_output_stream) {
+        TKMsgKeyCode *msg = (TKMsgKeyCode*)streamCreateMsg(keyboard_output_stream, ID_KEY_CODE, sizeof(TKMsgKeyCode));
         if (msg) {
             msg->type = type;
             msg->action = action;
             msg->ascii = ascii;
             msg->dir = dir;
         }
-        procSyncAllStreams(tk_cur_proc_id);
+        streamSync(1);
     } else {
         // TODO: Handle other character codes
         /*

@@ -248,7 +248,7 @@ void *heapSmallAlloc(TKSmallAllocatorPage **allocator_pool, TKVProcID owner, int
             if ((*allocator_pool)->allocated < num_per_page) {
                 void *ret = (void*)&((char*)*allocator_pool)[sizeof(TKSmallAllocatorPage) + (*allocator_pool)->allocated * size];
                 (*allocator_pool)->allocated++;
-                kprintf("SMALLOC: Allocated %X (%d) in page %X\n", ret, size, *allocator_pool);
+                kprintf("SMALLOC %d: Allocated %X (%d) in page %X\n", owner, ret, size, *allocator_pool);
                 return ret;
             }
 
@@ -266,14 +266,37 @@ void *heapSmallAlloc(TKSmallAllocatorPage **allocator_pool, TKVProcID owner, int
             (*allocator_pool)->allocated = 0;
             (*allocator_pool)->owner = owner;
             (*allocator_pool)->vaddr = procMapHeapPage(owner, *allocator_pool);
-            kprintf("SMALLOC: Allocated page for size %d to %d at %X\n", size, owner, (*allocator_pool)->vaddr);
+            kprintf("SMALLOC %d: Allocated page for size %d at %X\n", owner, size, (*allocator_pool)->vaddr);
         }
     }
 }
 
 void *heapSmallAllocGetVAddr(void *real_addr) {
-    TKSmallAllocatorPage *page = (TKSmallAllocatorPage*)(((int)real_addr) & ~0x3ff);
+    TKSmallAllocatorPage *page = (TKSmallAllocatorPage*)(((int)real_addr) & ~0xfff);
     int offset = (int)real_addr - (int)page;
     return page->vaddr + offset;
+}
+
+void *heapSmallAllocGetNext(void *cur_ptr) {
+    int index;
+    TKSmallAllocatorPage *page = (TKSmallAllocatorPage*)(((int)cur_ptr) & ~0xfff);
+    if (!cur_ptr) {
+        // Nothing to do here
+        return 0;
+    }
+    if ((((int)cur_ptr) & 0xfff) == 0) {
+        // We're trying to get the first entry
+        index = 0;
+    } else {
+        // Get the next entry index
+        index = ((((int)cur_ptr) & 0xfff) - sizeof(TKSmallAllocatorPage)) / page->size + 1;
+    }
+
+    kprintf("Getting entry %d / %d in %X\n", index, page->allocated, page); // donotcheckin
+    if (index >= page->allocated) {
+        // Try the first entry in the next page
+        return heapSmallAllocGetNext(page->next);
+    }
+    return (void*)&((char*)page)[sizeof(TKSmallAllocatorPage) + index * page->size];
 }
 

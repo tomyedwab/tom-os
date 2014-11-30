@@ -32,7 +32,9 @@ TKStreamID streamCreate(
 
     info->stream_id = tk_num_streams;
     info->read_owner = read_owner;
+    info->read_ptr = read_ptr;
     info->write_owner = write_owner;
+    info->write_ptr = write_ptr;
     info->size = size;
     info->num_pages = num_pages;
 
@@ -46,7 +48,7 @@ TKStreamID streamCreate(
 
         // Fill with empty identifier
         for (j = 0; j < 1024; j++) {
-            ((unsigned int *)buffer)[i] = TKS_ID_EMPTY;
+            ((unsigned int *)buffer)[j] = TKS_ID_EMPTY;
         }
 
         addr = procMapHeapPage(read_owner, (unsigned int)buffer);
@@ -64,9 +66,18 @@ TKStreamID streamCreate(
     streamInitStreams(read_ptr, write_ptr, read_vaddr, write_vaddr, size);
 
     kprintf("Created stream %d, size %X, %d pages\n", info->stream_id, info->size, info->num_pages);
-    kprintf(" -> Mapped reader %d to address %X\n", read_owner, read_vaddr);
-    kprintf(" -> Mapped writer %d to address %X\n", write_owner, write_vaddr);
+    kprintf(" -> Mapped reader %d (%X) to address %X\n", read_owner, read_ptr, read_vaddr);
+    kprintf(" -> Mapped writer %d (%X) to address %X\n", write_owner, write_ptr, write_vaddr);
 
     return info->stream_id;
 }
 
+void streamSync(TKVProcID proc_id) {
+    int stream;
+    for (stream = 0; stream < tk_num_streams; ++stream) {
+        TKStreamInfo *info = &tk_stream_table[stream];
+        if (proc_id == 0 || proc_id == info->read_owner || proc_id == info->write_owner) {
+            streamSyncStreams(info->read_ptr, info->write_ptr);
+        }
+    }
+}

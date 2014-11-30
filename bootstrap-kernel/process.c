@@ -154,7 +154,7 @@ TKVProcID procInitUser(void *entry_vaddr) {
     info->user_stdin = (TKStreamPointer*)info->shared_page_addr;
     streamCreate(4096, info->proc_id, info->user_stdin, 1, &info->kernel_stdin);
 
-    info->user_stdout = heapSmallAlloc(&info->stream_list, info->proc_id, sizeof(TKStreamPointer*));
+    info->user_stdout = heapSmallAlloc(&info->stream_list, info->proc_id, sizeof(TKStreamPointer));
     streamCreate(4096, 1, &info->kernel_stdout, info->proc_id, info->user_stdout);
 
     {
@@ -171,17 +171,20 @@ TKVProcID procInitUser(void *entry_vaddr) {
     return info->proc_id;
 }
 
-void procCreateStream(TKVProcID proc_read, TKVProcID proc_write) {
+void procCreateStream(TKVProcID proc_read, TKVProcID proc_write, TKStreamPointer **read_stream_out, TKStreamPointer **write_stream_out) {
     TKProcessInfo *read_info = &tk_process_table[proc_read-1];
     TKProcessInfo *write_info = &tk_process_table[proc_write-1];
     TKStreamPointer *read_stream;
     TKStreamPointer *write_stream;
 
     // Allocate two streams, one in each process's memory space
-    read_stream = heapSmallAlloc(&read_info->stream_list, read_info->proc_id, sizeof(TKStreamPointer*));
-    write_stream = heapSmallAlloc(&write_info->stream_list, write_info->proc_id, sizeof(TKStreamPointer*));
+    read_stream = heapSmallAlloc(&read_info->stream_list, proc_read, sizeof(TKStreamPointer));
+    write_stream = heapSmallAlloc(&write_info->stream_list, proc_write, sizeof(TKStreamPointer));
 
     streamCreate(4096, proc_read, read_stream, proc_write, write_stream);
+
+    *read_stream_out = read_stream;
+    *write_stream_out = write_stream;
 }
 
 void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest) {
@@ -286,13 +289,6 @@ TKStreamPointer *procGetStdinPointer(TKVProcID proc_id) {
     // TODO: Verify process is valid
     TKProcessInfo *info = &tk_process_table[proc_id-1];
     return &info->kernel_stdin;
-}
-
-void procSyncAllStreams(TKVProcID proc_id) {
-    // TODO: Verify process is valid
-    TKProcessInfo *info = &tk_process_table[proc_id-1];
-    streamSyncStreams(info->user_stdin, &info->kernel_stdin);
-    streamSyncStreams(&info->kernel_stdout, info->user_stdout);
 }
 
 void halt() {

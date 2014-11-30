@@ -34,3 +34,4 @@ void srand(unsigned long seed);
 unsigned long rand();
 
 void spawnProcess(TKStreamPointer *out, char *path, char *filename);
+void openStream(TKStreamPointer *out, const char *uri, int request_num);

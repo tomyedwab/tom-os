@@ -11,8 +11,7 @@ void syscallHandler(unsigned int func, unsigned int param1) {
     if (func == 0x2) {
         TKMsgHeader *msg;
         // flush_streams
-        // For now, just check stdout
-        procSyncAllStreams(tk_cur_proc_id);
+        streamSync(tk_cur_proc_id);
         while (msg = (TKMsgHeader*)streamReadMsg(procGetStdoutPointer(tk_cur_proc_id))) {
             switch (msg->identifier) {
             case ID_PRINT_STRING:
@@ -33,6 +32,19 @@ void syscallHandler(unsigned int func, unsigned int param1) {
                 {
                     TKMsgSpawnProcess *pmsg = (TKMsgSpawnProcess*)msg;
                     loadELF(pmsg->path_and_filename, &pmsg->path_and_filename[pmsg->filename_offset]);
+                    break;
+                }
+
+            case ID_OPEN_STREAM:
+                {
+                    TKMsgOpenStream *pmsg = (TKMsgOpenStream*)msg;
+                    // Decode uri
+                    // TODO: Something a bit fancier
+                    if (pmsg->uri[0] == 'k' && pmsg->uri[1] == 'b' && pmsg->uri[2] == ':') {
+                        // Open a keyboard input stream!
+                        kprintf("Opening a keyboard input stream for process %d\n", tk_cur_proc_id);
+                        keyboardOpenStream(tk_cur_proc_id, pmsg->request_num);
+                    }
                     break;
                 }
             };

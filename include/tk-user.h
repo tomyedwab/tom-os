@@ -29,10 +29,12 @@
 #define ID_PRINT_CHAR_AT  0x11
 #define ID_KEY_CODE       0x20
 #define ID_SPAWN_PROCESS  0x30
+#define ID_OPEN_STREAM    0x40
 
 typedef struct {
     TKMsgHeader header; // ID_INIT_STREAM
     TKStreamPointer *pointer;
+    int request_num; // A request number passed in when opening the stream
 } TKMsgInitStream;
 
 typedef struct {
@@ -62,6 +64,12 @@ typedef struct {
     // Null terminated path + null terminated filename
     char path_and_filename[];
 } TKMsgSpawnProcess;
+
+typedef struct {
+    TKMsgHeader header; // ID_OPEN_STREAM
+    int request_num; // A request number that will be associated with the stream
+    char uri[];
+} TKMsgOpenStream;
 
 // Make va_list work
 typedef unsigned char *va_list;

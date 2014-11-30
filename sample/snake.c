@@ -64,7 +64,7 @@ void clearScreen(TKStreamPointer *stdout) {
 
 }
 
-void gameLoop(TKStreamPointer *stdin, TKStreamPointer *stdout) {
+void gameLoop(TKStreamPointer *stdin, TKStreamPointer *keyboard_in, TKStreamPointer *stdout) {
     int i;
     TKMsgHeader *msg;
     int snake_coords[MAX_SNAKE_LENGTH*2];
@@ -135,7 +135,7 @@ void gameLoop(TKStreamPointer *stdin, TKStreamPointer *stdout) {
         flushStreams();
 
         // Handle input
-        while (msg = streamReadMsg(stdin)) {
+        while (msg = streamReadMsg(keyboard_in)) {
             switch (msg->identifier) {
                 case ID_KEY_CODE: {
                     TKMsgKeyCode *key_msg = (TKMsgKeyCode*)msg;
@@ -158,13 +158,42 @@ void gameLoop(TKStreamPointer *stdin, TKStreamPointer *stdout) {
 }
 
 void main(TKStreamPointer *stdin, TKStreamPointer *stdout) {
+    TKStreamPointer *keyboard_in = 0;
+
+    clearScreen(stdout);
+    printCharAt(stdout, TK_SCREEN_COLS/2-3, TK_SCREEN_ROWS/2, 'L', 12, 4);
+    printCharAt(stdout, TK_SCREEN_COLS/2-2, TK_SCREEN_ROWS/2, 'o', 12, 4);
+    printCharAt(stdout, TK_SCREEN_COLS/2-1, TK_SCREEN_ROWS/2, 'a', 12, 4);
+    printCharAt(stdout, TK_SCREEN_COLS/2+0, TK_SCREEN_ROWS/2, 'd', 12, 4);
+    printCharAt(stdout, TK_SCREEN_COLS/2+1, TK_SCREEN_ROWS/2, 'i', 12, 4);
+    printCharAt(stdout, TK_SCREEN_COLS/2+2, TK_SCREEN_ROWS/2, 'n', 12, 4);
+    printCharAt(stdout, TK_SCREEN_COLS/2+3, TK_SCREEN_ROWS/2, 'g', 12, 4);
+
+    openStream(stdout, "kb://localhost", 1);
+    flushStreams();
+
+    while (!keyboard_in) {
+        TKMsgHeader *msg;
+        msg = streamReadMsg(stdin);
+        if (msg) {
+            switch (msg->identifier) {
+                case ID_INIT_STREAM: {
+                    TKMsgInitStream *stream_msg = (TKMsgInitStream *)msg;
+                    if (stream_msg->request_num == 1) {
+                        keyboard_in = stream_msg->pointer;
+                    }
+                    break;
+                }
+            }
+        }
+    }
     while (1) {
         TKMsgHeader *msg;
         int waiting;
-        gameLoop(stdin, stdout);
+        gameLoop(stdin, keyboard_in, stdout);
         waiting = 1;
         while (waiting) {
-            msg = streamReadMsg(stdin);
+            msg = streamReadMsg(keyboard_in);
             if (msg) {
                 switch (msg->identifier) {
                     case ID_KEY_CODE: {
@@ -178,6 +207,7 @@ void main(TKStreamPointer *stdin, TKStreamPointer *stdout) {
                     }
                 }
             }
+            flushStreams();
         }
     }
 }

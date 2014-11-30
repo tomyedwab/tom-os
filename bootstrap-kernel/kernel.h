@@ -56,7 +56,9 @@ typedef struct {
 typedef struct {
     TKStreamID stream_id;        // ID used to reference the stream
     TKVProcID read_owner;        // Process that will be reading from the stream
+    TKStreamPointer *read_ptr;   // Address of read stream pointer
     TKVProcID write_owner;       // Process that will be writing to the stream
+    TKStreamPointer *write_ptr;  // Address of write stream pointer
     unsigned int size;           // Actual size (in bytes) of the buffer
     unsigned int num_pages;      // Number of pages allocated
     void *buffer_ptr;            // Real address of the stream buffer
@@ -95,7 +97,7 @@ void vmmSwap(TKVPageDirectory directory);
 void procInitKernel();
 void procInitKernelTSS(void *tss_ptr);
 TKVProcID procInitUser();
-void procCreateStream(TKVProcID proc_read, TKVProcID proc_write);
+void procCreateStream(TKVProcID proc_read, TKVProcID proc_write, TKStreamPointer **read_stream_out, TKStreamPointer **write_stream_out);
 void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest);
 void *procMapHeapPage(TKVProcID proc_id, unsigned int dest);
 void procStart(TKVProcID proc_id, void *ip);
@@ -103,7 +105,6 @@ void procCheckContextSwitch();
 void procExit();
 void *procGetSharedPage(TKVProcID proc_id);
 TKStreamPointer *procGetStdoutPointer(TKVProcID proc_id);
-void procSyncAllStreams(TKVProcID proc_id);
 void halt();
 void printStack();
 
@@ -114,6 +115,7 @@ void initHeap();
 void *allocPage();
 void *heapVirtAllocContiguous(int num_pages);
 void *heapSmallAlloc(TKSmallAllocatorPage **allocator_pool, TKVProcID owner, int size);
+void *heapSmallAllocGetNext(void *cur_ptr);
 
 // Screen
 void initScreen();
@@ -135,7 +137,7 @@ void sleep(unsigned int count);
 
 // Keyboard
 void keyboardInit();
-void keyboardOpenStream(TKVProcID proc);
+void keyboardOpenStream(TKVProcID proc, int request_num);
 void keyboardProcessCode(unsigned char code);
 
 // ATA driver
@@ -154,6 +156,7 @@ int loadELF(const char *path, const char *file_name);
 // Stream
 void streamInit();
 TKStreamID streamCreate(unsigned int size, TKVProcID read_owner, TKStreamPointer *read_ptr, TKVProcID write_owner, TKStreamPointer *write_ptr);
+void streamSync(TKVProcID proc_id);
 
 // Globals
 extern TKVProcID tk_cur_proc_id;
