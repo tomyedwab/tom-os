@@ -17,7 +17,7 @@ At run time:
 0x010000 - 0x088000 Kernel (kernel.c; up to 480kb)
 0x088000 - 0x088fff Interrupt table
 0x089000 - 0x089fff GDT
-0x08a000 - 0x090000 Kernel stack (boot.asm)
+0x08a000 - 0x090000 Kernel stack (kernel.c)
 0x090000 - 0x0903ff Heap header
 0x091000 - 0x091fff Kernel VMM directory
 0x0a0000 - 0x0bffff Video memory
