@@ -218,11 +218,17 @@ void *allocPage() {
     return 0;
 }
 
-void *heapAllocContiguous(int num_pages) {
-    // TODO: Remove this
-    int page = current_page;
-    current_page += num_pages << 12;
-    return (void *)page;
+void *heapVirtAllocContiguous(int num_pages) {
+    int page;
+    void *start;
+    for (page = 0; page < num_pages; page++) {
+        void *addr = allocPage();
+        void *vaddr = procMapHeapPage(1, addr);
+        if (page == 0) {
+            start = vaddr;
+        }
+    }
+    return start;
 }
 
 void *heapSmallAlloc(TKSmallAllocatorPage **allocator_pool, TKVProcID owner, int size) {

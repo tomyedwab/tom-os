@@ -69,7 +69,7 @@ int loadELF(const char *path, const char *file_name) {
         tfsCloseHandle(dir);
         return -1;
     }
-    buffer = heapAllocContiguous((size + 4095) / 4096);
+    buffer = heapVirtAllocContiguous((size + 4095) / 4096);
     header = (ELFHeader *)buffer;
     tfsCloseHandle(dir);
 

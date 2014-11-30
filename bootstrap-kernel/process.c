@@ -2,7 +2,6 @@
 
 TKProcessInfo *tk_process_table;
 TKVProcID tk_cur_proc_id = 1;
-int stream_virt_pages = 0;
 
 TKVProcID tk_queued_proc_id;
 void *tk_queued_proc_ip = 0;
@@ -153,19 +152,10 @@ TKVProcID procInitUser(void *entry_vaddr) {
     // Allocate exactly one page each for stdin/stdout
     // TODO: Handle multiple streams per process
     info->user_stdin = (TKStreamPointer*)info->shared_page_addr;
-    streamCreate(
-        4096,
-        info->proc_id, USER_STREAM_START_VADDR, info->user_stdin,
-        1, KERNEL_STREAM_START_VADDR + (stream_virt_pages << 12), &info->kernel_stdin);
-    stream_virt_pages += 2;
+    streamCreate(4096, info->proc_id, info->user_stdin, 1, &info->kernel_stdin);
 
     info->user_stdout = heapSmallAlloc(&info->stream_list, info->proc_id, sizeof(TKStreamPointer*));
-    //info->user_stdout = (TKStreamPointer*)((char*)info->shared_page_addr + sizeof(TKStreamPointer));
-    streamCreate(
-        4096,
-        1, KERNEL_STREAM_START_VADDR + (stream_virt_pages << 12), &info->kernel_stdout,
-        info->proc_id, USER_STREAM_START_VADDR + 0x2000, info->user_stdout);
-    stream_virt_pages += 2;
+    streamCreate(4096, 1, &info->kernel_stdout, info->proc_id, info->user_stdout);
 
     {
         // Send stdout stream via stdin
@@ -181,6 +171,19 @@ TKVProcID procInitUser(void *entry_vaddr) {
     return info->proc_id;
 }
 
+void procCreateStream(TKVProcID proc_read, TKVProcID proc_write) {
+    TKProcessInfo *read_info = &tk_process_table[proc_read-1];
+    TKProcessInfo *write_info = &tk_process_table[proc_write-1];
+    TKStreamPointer *read_stream;
+    TKStreamPointer *write_stream;
+
+    // Allocate two streams, one in each process's memory space
+    read_stream = heapSmallAlloc(&read_info->stream_list, read_info->proc_id, sizeof(TKStreamPointer*));
+    write_stream = heapSmallAlloc(&write_info->stream_list, write_info->proc_id, sizeof(TKStreamPointer*));
+
+    streamCreate(4096, proc_read, read_stream, proc_write, write_stream);
+}
+
 void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest) {
     TKProcessInfo *info = &tk_process_table[proc_id-1];
     // TODO: Verify process is valid
@@ -189,7 +192,7 @@ void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest) {
 
 void *procMapHeapPage(TKVProcID proc_id, unsigned int dest) {
     TKProcessInfo *info = &tk_process_table[proc_id-1];
-    void *vaddr = (void*)(USER_HEAP_START_VADDR + 0x400 * info->heap_mapped_pages);
+    void *vaddr = (void*)(USER_HEAP_START_VADDR + 0x1000 * info->heap_mapped_pages);
     // TODO: Verify process is valid
     vmmMapPage(info->vmm_directory, vaddr, dest, 1);
     info->heap_mapped_pages++;

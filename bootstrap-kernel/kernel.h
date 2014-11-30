@@ -13,7 +13,6 @@
 #define KERNEL_HEAP_ADDR          0x204000
 
 // Virtual addresses
-#define KERNEL_STREAM_START_VADDR 0xC000000
 #define USER_STACK_START_VADDR    0xA000000
 #define USER_HEAP_START_VADDR     0x1000000
 
@@ -96,6 +95,7 @@ void vmmSwap(TKVPageDirectory directory);
 void procInitKernel();
 void procInitKernelTSS(void *tss_ptr);
 TKVProcID procInitUser();
+void procCreateStream(TKVProcID proc_read, TKVProcID proc_write);
 void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest);
 void *procMapHeapPage(TKVProcID proc_id, unsigned int dest);
 void procStart(TKVProcID proc_id, void *ip);
@@ -112,7 +112,7 @@ extern TKProcessInfo *tk_process_table;
 // Heap
 void initHeap();
 void *allocPage();
-void *heapAllocContiguous(int num_pages);
+void *heapVirtAllocContiguous(int num_pages);
 void *heapSmallAlloc(TKSmallAllocatorPage **allocator_pool, TKVProcID owner, int size);
 
 // Screen
@@ -135,6 +135,7 @@ void sleep(unsigned int count);
 
 // Keyboard
 void keyboardInit();
+void keyboardOpenStream(TKVProcID proc);
 void keyboardProcessCode(unsigned char code);
 
 // ATA driver
@@ -152,10 +153,7 @@ int loadELF(const char *path, const char *file_name);
 
 // Stream
 void streamInit();
-TKStreamID streamCreate(
-    unsigned int size,
-    TKVProcID read_owner, unsigned int read_vaddr, TKStreamPointer *read_ptr,
-    TKVProcID write_owner, unsigned int write_vaddr, TKStreamPointer *write_ptr);
+TKStreamID streamCreate(unsigned int size, TKVProcID read_owner, TKStreamPointer *read_ptr, TKVProcID write_owner, TKStreamPointer *write_ptr);
 
 // Globals
 extern TKVProcID tk_cur_proc_id;

@@ -86,11 +86,13 @@ image: output/bootloader-stage1.bin output/bootloader-stage2.bin output/filesyst
 	truncate -s 10813440 output/image.bin
 
 # Disassembly
-disasm: output/bootstrap-kernel.bin output/snake.elf
+disasm: output/bootstrap-kernel.bin output/init.elf output/snake.elf
 	ndisasm -b 32 -o 0x10000 output/bootstrap-kernel.bin > output/bootstrap-kernel.bin.as
 	ndisasm -b 32 -e 160 -o 0x080480A0 output/snake.elf > output/snake.elf.as
+	ndisasm -b 32 -e 160 -o 0x080480A0 output/init.elf > output/init.elf.as
 	readelf -s output/bootstrap-kernel.elf > output/bootstrap-kernel.syms
 	readelf -s output/snake.elf > output/snake.syms
+	readelf -s output/init.elf > output/init.syms
 
 vm: image disasm
 	rm -f boot.vhd

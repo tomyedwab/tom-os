@@ -42,7 +42,7 @@ int read_fn(struct TFS *fs, char *buf, unsigned int block) {
 TFS gTFS;
 
 void initFilesystem() {
-    FileHandle *handle_storage = (FileHandle*)heapAllocContiguous(4);
+    FileHandle *handle_storage = (FileHandle*)heapVirtAllocContiguous(4);
 
     block_cache = allocPage();
 

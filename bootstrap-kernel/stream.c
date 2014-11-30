@@ -19,11 +19,13 @@ void streamInit() {
  */
 TKStreamID streamCreate(
         unsigned int size,
-        TKVProcID read_owner, unsigned int read_vaddr, TKStreamPointer *read_ptr,
-        TKVProcID write_owner, unsigned int write_vaddr, TKStreamPointer *write_ptr) {
+        TKVProcID read_owner, TKStreamPointer *read_ptr,
+        TKVProcID write_owner, TKStreamPointer *write_ptr) {
     TKStreamInfo *info;
     // Round up to the nearest 4k bytes
     int num_pages = (size + 0xfff) >> 12;
+    void *read_vaddr, *write_vaddr;
+    void *first_buffer;
     int i;
 
     info = &tk_stream_table[tk_num_streams++];
@@ -33,27 +35,35 @@ TKStreamID streamCreate(
     info->write_owner = write_owner;
     info->size = size;
     info->num_pages = num_pages;
-    info->buffer_ptr = heapAllocContiguous(num_pages);
-
-    // Fill with empty identifier
-    for (i = 0; i < size / 4; i++) {
-        ((unsigned int *)info->buffer_ptr)[i] = TKS_ID_EMPTY;
-    }
 
     // Map the pages into the user memory spaces
     for (i = 0; i < info->num_pages; i++) {
-        procMapPage(read_owner, read_vaddr + (i << 12), (unsigned int)info->buffer_ptr + (i << 12));
-        procMapPage(write_owner, write_vaddr + (i << 12), (unsigned int)info->buffer_ptr + (i << 12));
+        int j;
+        void *addr;
+        void *buffer = allocPage();
+
+        if (i == 0) { first_buffer = buffer; }
+
+        // Fill with empty identifier
+        for (j = 0; j < 1024; j++) {
+            ((unsigned int *)buffer)[i] = TKS_ID_EMPTY;
+        }
+
+        addr = procMapHeapPage(read_owner, (unsigned int)buffer);
+        if (i == 0) { read_vaddr = addr; }
+
+        addr = procMapHeapPage(write_owner, (unsigned int)buffer);
+        if (i == 0) { write_vaddr = addr; }
     }
     // Map the first page again after the last page, so writes off the end can
     // magically just wrap around
-    procMapPage(read_owner, read_vaddr + (i << 12), (unsigned int)info->buffer_ptr);
-    procMapPage(write_owner, write_vaddr + (i << 12), (unsigned int)info->buffer_ptr);
+    procMapHeapPage(read_owner, (unsigned int)first_buffer);
+    procMapHeapPage(write_owner, (unsigned int)first_buffer);
 
     // Initialize the stream pointers
     streamInitStreams(read_ptr, write_ptr, read_vaddr, write_vaddr, size);
 
-    kprintf("Created stream %d at %X, size %X, %d pages\n", info->stream_id, info->buffer_ptr, info->size, info->num_pages);
+    kprintf("Created stream %d, size %X, %d pages\n", info->stream_id, info->size, info->num_pages);
     kprintf(" -> Mapped reader %d to address %X\n", read_owner, read_vaddr);
     kprintf(" -> Mapped writer %d to address %X\n", write_owner, write_vaddr);
 
