@@ -33,15 +33,27 @@ typedef struct {
 // 255 pages * 16 bytes = 4080 bytes
 // TODO: Track more information so we can maybe someday deallocate memory
 typedef struct {
-    char type; // Currently 0 = available, 1 = allocated
+    char type;              // Currently 0 = available, 1 = allocated
     char reserved[15];
 } TKHeapPageInfo;
+
+// A header for a page used in a small allocator pool
+typedef struct TKSmallAllocatorPage {
+    int size;                   // Size of the objects in the pool
+    int allocated;              // Number of allocated entries in this page
+    TKVProcID owner;            // Process that owns this page
+    void *vaddr;                // Virtual address in process memory for this page
+    TKSmallAllocatorPage *next; // Pointer to the next page in the pool
+} TKSmallAllocatorPage;
 
 TKHeapHeader *heap_header = (TKHeapHeader*)0x090000;
 
 // Iterators that we keep around to continuously traverse the free list
 int heap_segment = 0;
 int heap_byte = 0;
+
+// Small allocator types
+TKSmallAllocatorPage *stream_allocator;
 
 void initHeap() {
     int i, mmap_length = *((int*)0x88000);
@@ -211,5 +223,51 @@ void *heapAllocContiguous(int num_pages) {
     int page = current_page;
     current_page += num_pages << 12;
     return (void *)page;
+}
+
+void *heapSmallAlloc(TKSmallAllocatorPage **allocator_pool, TKVProcID owner, int size) {
+    int num_per_page = (4096 - sizeof(TKSmallAllocatorPage)) / size;
+    if (num_per_page < 2) {
+        // This is not a small allocation!
+        return 0;
+    }
+    while (1) {
+        if (*allocator_pool) {
+            // Check that size matches
+            if ((*allocator_pool)->size != size) {
+                return 0;
+            }
+
+            // Check if there is available space in the current page
+            if ((*allocator_pool)->allocated < num_per_page) {
+                void *ret = (void*)&((char*)*allocator_pool)[sizeof(TKSmallAllocatorPage) + (*allocator_pool)->allocated * size];
+                (*allocator_pool)->allocated++;
+                kprintf("SMALLOC: Allocated %X (%d) in page %X\n", ret, size, *allocator_pool);
+                return ret;
+            }
+
+            // No space. Advance to next
+            allocator_pool = &((*allocator_pool)->next);
+        }
+
+        // If there is no next, create one
+        if (!*allocator_pool) {
+            *allocator_pool = (TKSmallAllocatorPage *)allocPage();
+            if (!*allocator_pool) {
+                return 0;
+            }
+            (*allocator_pool)->size = size;
+            (*allocator_pool)->allocated = 0;
+            (*allocator_pool)->owner = owner;
+            (*allocator_pool)->vaddr = procMapHeapPage(owner, *allocator_pool);
+            kprintf("SMALLOC: Allocated page for size %d to %d at %X\n", size, owner, (*allocator_pool)->vaddr);
+        }
+    }
+}
+
+void *heapSmallAllocGetVAddr(void *real_addr) {
+    TKSmallAllocatorPage *page = (TKSmallAllocatorPage*)(((int)real_addr) & ~0x3ff);
+    int offset = (int)real_addr - (int)page;
+    return page->vaddr + offset;
 }
 

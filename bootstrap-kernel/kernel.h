@@ -15,6 +15,7 @@
 // Virtual addresses
 #define KERNEL_STREAM_START_VADDR 0xC000000
 #define USER_STACK_START_VADDR    0xA000000
+#define USER_HEAP_START_VADDR     0x1000000
 
 // Process flags
 #define PROC_FLAGS_TERMINATED     (1<<0)
@@ -27,6 +28,8 @@ typedef unsigned int *TKVPageTable;
 typedef unsigned int TKVProcID;
 typedef unsigned int TKStreamID;
 
+typedef struct TKSmallAllocatorPage TKSmallAllocatorPage;
+
 typedef struct {
     TKVProcID proc_id;
     TKVPageDirectory vmm_directory;
@@ -35,12 +38,17 @@ typedef struct {
     int stack_pages;
     void *kernel_stack_addr;
     void *shared_page_addr;
+    int heap_mapped_pages; // Number of pages mapped into process virtual memory starting at USER_HEAP_START_VADDR
+
     // Kernel has to keep pointers to stdin/stdout so it can read from/write to them
     TKStreamPointer kernel_stdin;  // stdin write pointer
     TKStreamPointer kernel_stdout; // stdout read pointer
+
     // Kernel tracks all stream pointers for the process which are mapped into shared pages
     TKStreamPointer *user_stdin;   // stdin read pointer in kernel memory space
     TKStreamPointer *user_stdout;  // stdout write pointer in kernel memory space
+    TKSmallAllocatorPage *stream_list; // Allocator list of all the streams (except stdin)
+
     long active_start; // last time we switched to this process
     long active_end; // last time we switched away from this process
     void *active_stack_addr; // PC saved when we last switched away from the process
@@ -89,6 +97,7 @@ void procInitKernel();
 void procInitKernelTSS(void *tss_ptr);
 TKVProcID procInitUser();
 void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest);
+void *procMapHeapPage(TKVProcID proc_id, unsigned int dest);
 void procStart(TKVProcID proc_id, void *ip);
 void procCheckContextSwitch();
 void procExit();
@@ -104,6 +113,7 @@ extern TKProcessInfo *tk_process_table;
 void initHeap();
 void *allocPage();
 void *heapAllocContiguous(int num_pages);
+void *heapSmallAlloc(TKSmallAllocatorPage **allocator_pool, TKVProcID owner, int size);
 
 // Screen
 void initScreen();

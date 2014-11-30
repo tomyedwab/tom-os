@@ -169,9 +169,7 @@ void excPageFault(unsigned int address) {
             return;
         }
     }
-    printStr("Page fault at ");
-    printInt(address);
-    printStr("\n");
+    kprintf("Page fault at %X\n", address);
     //printStack();
     halt();
 }

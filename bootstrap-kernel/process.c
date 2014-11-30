@@ -110,6 +110,7 @@ TKVProcID procInitUser(void *entry_vaddr) {
     }
 
     info->flags = 0;
+    info->heap_mapped_pages = 0;
     info->vmm_directory = vmmCreateDirectory();
 
     // Identity map kernel code so we can jump into the interrupt handlers
@@ -158,7 +159,8 @@ TKVProcID procInitUser(void *entry_vaddr) {
         1, KERNEL_STREAM_START_VADDR + (stream_virt_pages << 12), &info->kernel_stdin);
     stream_virt_pages += 2;
 
-    info->user_stdout = (TKStreamPointer*)((char*)info->shared_page_addr + sizeof(TKStreamPointer));
+    info->user_stdout = heapSmallAlloc(&info->stream_list, info->proc_id, sizeof(TKStreamPointer*));
+    //info->user_stdout = (TKStreamPointer*)((char*)info->shared_page_addr + sizeof(TKStreamPointer));
     streamCreate(
         4096,
         1, KERNEL_STREAM_START_VADDR + (stream_virt_pages << 12), &info->kernel_stdout,
@@ -169,7 +171,7 @@ TKVProcID procInitUser(void *entry_vaddr) {
         // Send stdout stream via stdin
         TKMsgInitStream *msg = (TKMsgInitStream*)streamCreateMsg(
                 &info->kernel_stdin, ID_INIT_STREAM, sizeof(TKMsgInitStream));
-        msg->pointer = (TKStreamPointer*)(USER_SHARED_PAGE_VADDR + sizeof(TKStreamPointer));
+        msg->pointer = (TKStreamPointer*)heapSmallAllocGetVAddr(info->user_stdout);
         streamSyncStreams(info->user_stdin, &info->kernel_stdin);
     }
 
@@ -183,6 +185,15 @@ void procMapPage(TKVProcID proc_id, unsigned int src, unsigned int dest) {
     TKProcessInfo *info = &tk_process_table[proc_id-1];
     // TODO: Verify process is valid
     vmmMapPage(info->vmm_directory, src, dest, 1);
+}
+
+void *procMapHeapPage(TKVProcID proc_id, unsigned int dest) {
+    TKProcessInfo *info = &tk_process_table[proc_id-1];
+    void *vaddr = (void*)(USER_HEAP_START_VADDR + 0x400 * info->heap_mapped_pages);
+    // TODO: Verify process is valid
+    vmmMapPage(info->vmm_directory, vaddr, dest, 1);
+    info->heap_mapped_pages++;
+    return vaddr;
 }
 
 void procStart(TKVProcID proc_id, void *ip) {
