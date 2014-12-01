@@ -84,8 +84,6 @@ void procInitKernelTSS(void *tss_ptr) {
     tss->iomap_base = sizeof(tss_entry_struct);
 
     tk_kernel_tss = tss;
-
-    kprintf("Kernel TSS: %X\n", tss_ptr);
 }
 
 TKVProcID procInitUser(void *entry_vaddr) {
@@ -291,6 +289,11 @@ TKStreamPointer *procGetStdinPointer(TKVProcID proc_id) {
     return &info->kernel_stdin;
 }
 
+void panic() {
+    printStack();
+    halt();
+}
+
 void halt() {
     printStr("System halted.\n");
     while (1) {
@@ -299,17 +302,25 @@ void halt() {
 
 void printStack() {
     int i;
-    unsigned int *bp, *sp, *ip;
+    unsigned int *bp, *sp, *ip = &printStack;
     __asm__ __volatile__ (
         "mov %%esp, %0\n"
         "mov %%ebp, %1\n"
         : "=r" (sp), "=r" (bp)
     );
-    kprintf("STACK %X BASE %X IP %X", sp, bp, &printStack);
-    for (i = 0; i < 128; i++) {
-        if (i % 6 == 0) {
-            kprintf("\n%X: ", &bp[i]);
+    while (1) {
+        unsigned int *ptr;
+        kprintf("eip %X esp %X:\n", ip, sp);
+        if (ip == 0) {
+            break;
         }
-        kprintf("%X ", bp[i]);
+        kprintf("  ");
+        for (ptr = sp; ptr < bp; ptr++) {
+            kprintf("%08X ", *ptr);
+        }
+        kprintf("\n");
+        sp = &bp[2];
+        ip = bp[1];
+        bp = bp[0];
     }
 }

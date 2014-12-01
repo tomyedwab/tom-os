@@ -175,9 +175,8 @@ void excPageFault(unsigned int address) {
 }
 
 void reportInterruptHandler(unsigned int id) {
-    printStr("Unhandled interrupt! ");
-    printByte(id);
-    printStr("\n");
+    kprintf("Unhandled interrupt %d!\n", id);
+    panic();
 }
 
 void handleIRQ(unsigned int id) {
