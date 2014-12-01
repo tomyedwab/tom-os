@@ -112,3 +112,8 @@ clean:
 
 catlog:
 	output/tomfs_cat_file output/image.bin /logs/kernel.log 17408
+
+catvboxlog:
+	vdfuse -w -f boot.vhd mnt
+	output/tomfs_cat_file mnt/EntireDisk /logs/kernel.log 17408
+	fusermount -u mnt
