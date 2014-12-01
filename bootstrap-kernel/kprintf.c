@@ -8,7 +8,8 @@
  *
  * ----------------------------------------------------------------------- */
 
-#include "tk-user.h"
+#include "kernel.h"
+#include "tomfs.h"
 
 /*
  * Oh, it's a waste of space, but oh-so-yummy for debugging.  This
@@ -16,6 +17,8 @@
  * it."
  *
  */
+
+FileHandle *log_file = 0;
 
 int isdigit(const char c)
 {
@@ -322,7 +325,35 @@ int kprintf(const char *fmt, ...)
     printed = vsprintf(printf_tmp_buf, fmt, args);
     va_end(args);
 
-    printStr(printf_tmp_buf);
+    if (log_file) {
+        tfsWriteFile(&gTFS, log_file, printf_tmp_buf, printed, tfsGetFileSize(log_file));
+    } else {
+        printStr(printf_tmp_buf);
+    }
 
     return printed;
 }
+
+void initLogger() {
+    FileHandle *dir_handle;
+
+    // Create the "/logs" directory if it doesn't exist
+    dir_handle = tfsOpenPath(&gTFS, "/logs");
+    if (!dir_handle) {
+        dir_handle = tfsCreateDirectory(&gTFS, "/", "logs");
+        if (!dir_handle) {
+            kprintf("Failed to create log directory!\n");
+            return;
+        }
+    }
+    tfsCloseHandle(dir_handle);
+
+    // Create a new log file for this run
+    tfsDeleteFile(&gTFS, "/logs", "kernel.log");
+    log_file = tfsCreateFile(&gTFS, "/logs", 0644, "kernel.log");
+    if (!log_file) {
+        kprintf("Failed to create log file!\n");
+        return;
+    }
+}
+

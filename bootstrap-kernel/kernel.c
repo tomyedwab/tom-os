@@ -4,35 +4,40 @@ void main() {
     int i;
     unsigned char *buffer;
     initScreen();
-    printStr("Bootstrap kernel loaded.\n");
+    kprintf("Bootstrap kernel loaded.\n");
 
     initHeap();
-    printStr("[OK] Heap\n");
+    kprintf("[OK] Heap\n");
 
     // Initialize the kernel process & switch to the kernel VMM directory
     procInitKernel();
-    printStr("[OK] Kernel process\n");
+    kprintf("[OK] Kernel process\n");
 
     gdtInit();
-    printStr("[OK] GDT\n");
+    kprintf("[OK] GDT\n");
 
     initPIC();
-    printStr("[OK] PIC\n");
+    kprintf("[OK] PIC\n");
 
     initInterrupts();
-    printStr("[OK] Interrupts\n");
+    kprintf("[OK] Interrupts\n");
 
     keyboardInit();
-    printStr("[OK] Keyboard\n");
+    kprintf("[OK] Keyboard\n");
 
     streamInit();
-    printStr("[OK] Streams\n");
+    kprintf("[OK] Streams\n");
 
     pciListDevices();
     printStr("[OK] PCI\n");
 
     initFilesystem();
-    printStr("[OK] Filesystem\n");
+    kprintf("[OK] Filesystem\n");
+
+    initLogger();
+    // Henceforth all kprintf statements will go to the log file, not to the
+    // screen
+    kprintf("[OK] Logger\n");
 
     if (loadELF("/bin", "init.elf") != 0) {
         halt();

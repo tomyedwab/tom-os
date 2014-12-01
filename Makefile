@@ -54,6 +54,10 @@ output/tomfs_test: tomfs/tomfs.c tomfs/tomfs_test.c
 output/tomfs_make_fs: tomfs/tomfs.c tomfs/make_fs.c
 	gcc -I./include -o $@ $+
 
+# TomFS cat_file utility
+output/tomfs_cat_file: tomfs/tomfs.c tomfs/cat_file.c
+	gcc -I./include -o $@ $+
+
 # TomFS FUSE driver
 output/tomfs_fuse: tomfs/tomfs.c tomfs/fuse.c
 	mkdir -p output
@@ -94,7 +98,7 @@ disasm: output/bootstrap-kernel.bin output/init.elf output/snake.elf
 	readelf -s output/snake.elf > output/snake.syms
 	readelf -s output/init.elf > output/init.syms
 
-vm: image disasm
+vm: image disasm output/tomfs_cat_file
 	rm -f boot.vhd
 	VBoxManage convertfromraw ./output/image.bin boot.vhd --format VHD --uuid="{8241d56f-3c7e-4907-9db2-0d05ac2430ce}"
 
@@ -105,3 +109,6 @@ test: output/tomfs_test output/streamlib_test
 
 clean:
 	rm -rf build output boot.vhd
+
+catlog:
+	output/tomfs_cat_file output/image.bin /logs/kernel.log 17408

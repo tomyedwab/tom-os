@@ -182,6 +182,9 @@ int tfsDeleteFile(TFS *tfs, char *path, char *file_name);
 // Closes a handle to a file or directory
 void tfsCloseHandle(FileHandle *handle);
 
+// Gets the current file size
+unsigned int tfsGetFileSize(FileHandle *handle);
+
 // Returns the number of currently in-use handles
 int tfsGetOpenHandleCount();
 

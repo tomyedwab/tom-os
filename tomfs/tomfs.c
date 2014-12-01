@@ -952,6 +952,11 @@ void tfsCloseHandle(FileHandle *handle) {
     }
 }
 
+unsigned int tfsGetFileSize(FileHandle *handle) {
+    if (!handle) return 0;
+    return handle->current_size;
+}
+
 int tfsGetOpenHandleCount() {
     int i, count = 0;
     for (i = 0; i < MAX_FILE_HANDLES; i++) {

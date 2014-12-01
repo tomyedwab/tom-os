@@ -129,6 +129,7 @@ void printInt(unsigned int num);
 
 // Kprintf
 int kprintf(const char *fmt, ...);
+void initLogger();
 
 // Interrupts
 void initInterrupts();
