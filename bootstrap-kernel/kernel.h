@@ -140,6 +140,10 @@ void keyboardInit();
 void keyboardOpenStream(TKVProcID proc, int request_num);
 void keyboardProcessCode(unsigned char code);
 
+// PCI
+void pciListDevices();
+int pciGetIDEConfig(int slave, unsigned int *cmdBase, unsigned int *ctrlBase, unsigned int *bmideBase, int *irqNum);
+
 // ATA driver
 int loadFromDisk(int LBA, int sectorCount, unsigned char *buffer);
 

@@ -2,6 +2,12 @@
 
 void initScreen();
 
+int pciGetIDEConfig(int slave, unsigned int *cmdBase, unsigned int *ctrlBase, unsigned int *bmideBase, int *irqNum) {
+    // TODO: Do PCI scan in stage 2 as well
+    *cmdBase = 0x1F0;
+    *ctrlBase = 0x370;
+}
+
 #define BLOCK_CACHE_ADDR 0x204000
 
 // block_cache[idx] = the filesystem block index cached at address

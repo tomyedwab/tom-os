@@ -41,7 +41,7 @@ void setPCIDevice(PCIDevice *dev, unsigned char bus, unsigned char slot, unsigne
     dev->func = func;
 }
 
-void listPCIDevices() {
+void pciListDevices() {
     clearPCIDevice(&ide);
 
     unsigned short bus, slot, function;
@@ -79,4 +79,44 @@ void listPCIDevices() {
             }
         }
     }
+}
+
+int pciGetIDEConfig(int slave, unsigned int *cmdBase, unsigned int *ctrlBase, unsigned int *bmideBase, int *irqNum) {
+    int priSec = slave ? 1 : 0;
+    if (ide.bus == 0xff) {
+        return 0;
+    }
+    *cmdBase = pciConfigReadDWord(ide.bus, ide.slot, ide.func, 0x10 + (8 * priSec));
+    *ctrlBase = pciConfigReadDWord(ide.bus, ide.slot, ide.func, 0x14 + (8 * priSec));
+    *bmideBase = pciConfigReadDWord(ide.bus, ide.slot, ide.func, 0x20);
+    *irqNum = 0;
+    if (*cmdBase == 0xffff || *ctrlBase == 0xffff || *bmideBase == 0xffff) {
+        kprintf("PCI information invalid!\n");
+        return 0;
+    }
+
+    *cmdBase &= 0xfffe;
+    *ctrlBase &= 0xfffe;
+    *bmideBase &= 0xfffe;
+    if (*cmdBase == 0)
+    {
+        *cmdBase = priSec ? 0x170 : 0x1f0;
+        *ctrlBase = priSec ? 0x370 : 0x3f0;
+        *irqNum = priSec ? 15 : 14;
+    }
+    else
+    {
+        *ctrlBase -= 4;
+    }
+    if (priSec) {
+        *bmideBase += 8;
+    } 
+
+    if (!*irqNum)
+    {
+        *irqNum = pciConfigReadDWord(ide.bus, ide.slot, ide.func, 0x3c );
+        *irqNum &= 0x00ff;
+    }
+
+    return 1;
 }

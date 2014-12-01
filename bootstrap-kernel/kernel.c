@@ -28,6 +28,9 @@ void main() {
     streamInit();
     printStr("[OK] Streams\n");
 
+    pciListDevices();
+    printStr("[OK] PCI\n");
+
     initFilesystem();
     printStr("[OK] Filesystem\n");
 
